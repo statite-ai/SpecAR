@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "specar"
+version = "0.1.0"
+description = "SpecAR: distributed target blocks for fast autoregressive video generation"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0 (specar/); CC-BY-NC-SA-4.0 (specar/model_krea.py, specar/_vendor/krea/)" }
+authors = [{ name = "Hudeifa Hassan", email = "hudeifa@statite.ai" }]
+# Versions are the ones the reference hashes were produced with.
+dependencies = [
+    "torch==2.8.0",
+    "torchvision==0.23.0",
+    "diffusers==0.31.0",
+    "transformers==4.54.1",
+    "accelerate==1.9.0",
+    "safetensors==0.5.3",
+    "huggingface-hub==0.34.3",
+    "einops==0.8.1",
+    "easydict==1.13",
+    "ftfy==6.3.1",
+    "regex==2025.7.34",
+    "numpy==2.1.2",
+    "scipy==1.15.3",
+    "opencv-python==4.11.0.86",
+    "pillow==10.4.0",
+    "requests",
+    "tqdm==4.67.1",
+    "python-dotenv==1.1.1",
+    "imageio==2.37.0",
+    "imageio-ffmpeg==0.6.0",
+]
+
+[project.scripts]
+specar = "specar.cli:main"
+specar-benchmark = "specar.benchmark:main"
+
+[tool.setuptools.packages.find]
+include = ["specar*"]
+
+[tool.setuptools.package-data]
+specar = ["_vendor/krea/**/*.py", "_vendor/krea/*.md"]

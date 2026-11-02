@@ -38,6 +38,7 @@ def _transformer(path):
         tr.set_attention_backend("_flash_3_hub")
     except Exception:
         tr.set_attention_backend("flash_hub")
+        print("FlashAttention 3 unavailable, using FlashAttention 2: outputs will not match the reference latents")
     return tr
 
 
@@ -76,6 +77,7 @@ class HeliosSpecAR:
                                                    torch_dtype=torch.bfloat16).to("cuda")
         for p in (self.base, self.dist):
             p.set_progress_bar_config(disable=True)
+        # Patch two methods instead of copying Helios's pipeline, so every other step stays Helios's own code.
         self._stage1 = self.base.stage1_sample
         self._decode = self.vae.decode
         self._chunks = None
@@ -129,5 +131,5 @@ class HeliosSpecAR:
         latents = out.frames[0]
         assert len(chunks) == latents.shape[1] // 9, (len(chunks), tuple(latents.shape))
         frames = np.concatenate([_to_uint8(c) for c in chunks])
-        frames = frames[:(len(frames) - 1) // 4 * 4 + 1]
+        frames = frames[:(len(frames) - 1) // 4 * 4 + 1]  # same trim as HeliosPipeline.__call__
         return latents, frames, times

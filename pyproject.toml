@@ -42,7 +42,27 @@ krea = [
     "imageio==2.37.0",
     "imageio-ffmpeg==0.6.0",
 ]
-helios = []
+helios = [
+    "torch==2.10.0",
+    "torchvision==0.25.0",
+    "diffusers @ git+https://github.com/huggingface/diffusers.git@d773308ca726766d6d2867f1fb8732df3d1dc5a3",
+    "transformers==5.3.0",
+    "accelerate==1.12.0",
+    "safetensors==0.8.0rc0",
+    "huggingface-hub==1.4.1",
+    "kernels==0.13.0",
+    "triton==3.6.0",
+    "tokenizers==0.22.2",
+    "einops==0.8.2",
+    "ftfy==6.3.1",
+    "regex==2026.4.4",
+    "numpy==1.26.4",
+    "pillow==11.3.0",
+    "protobuf==6.33.6",
+    "tqdm==4.67.3",
+    "imageio==2.37.3",
+    "imageio-ffmpeg==0.6.0",
+]
 
 [project.scripts]
 specar = "specar.cli:main"

@@ -41,6 +41,8 @@ HELIOS_PROMPTS = {
 }
 HELIOS_SEED0, HELIOS_CHUNKS = 115000, 36
 HELIOS_REFERENCE = {  # (k, prompt index) -> sha256 of the latents
+    (7, 59): "a655a4699de5222a0e72eb4d7ac87a3a691efbd09ddc5ff87312ce8cd4268a42",
+    (7, 81): "a737c7e67f86cf16be273ac38bd310235d7cf88bdb3c86e006ef84b50bcc33ea",
 }
 
 

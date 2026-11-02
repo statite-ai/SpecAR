@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """specar-benchmark: generation time per video, and a bitwise check against the reference latents.
 
-The reference SHA-256 hashes are of the committed latents (bf16, [1, 108, 16, 60, 104]) for four prompts at seed 42,
-H=36, on one H100 80GB with FlashAttention 3. They equal the latents behind the paper's Krea Realtime results.
+Krea Realtime: SHA-256 of the committed latents (bf16, [1, 108, 16, 60, 104]) for four prompts at seed 42, H=36.
+Helios: SHA-256 of the latents for two HeliosBench prompts at seed 115000 + prompt index, H=36.
+Both were produced on one H100 80GB with FlashAttention 3 and equal the outputs behind the paper's results.
 """
 import argparse
 import hashlib
@@ -33,6 +34,16 @@ REFERENCE = {  # (k, prompt index) -> sha256 of the latents
 }
 
 
+# Helios: HeliosBench prompt indices, seeds 115000 + index, 36 chunks of 33 frames
+HELIOS_PROMPTS = {
+    59: "A vibrant tropical fish swimming gracefully among colorful coral reefs in a clear, turquoise ocean. The fish has bright blue and yellow scales with a small, distinctive orange spot on its side, its fins moving fluidly. The coral reefs are alive with a variety of marine life, including small schools of colorful fish and sea turtles gliding by. The water is crystal clear, allowing for a view of the sandy ocean floor below. The reef itself is adorned with a mix of hard and soft corals in shades of red, orange, and green. The photo captures the fish from a slightly elevated angle, emphasizing its lively movements and the vivid colors of its surroundings. A close-up shot with dynamic movement.",
+    81: "A hyper-realistic macro photograph capturing the intricate details of a dandelion, zooming in at an incredible speed to reveal a dream-like, abstract world. The petals are softly blurred, creating a mesmerizing effect that blends reality with fantasy. Each fiber and grain of pollen is vividly detailed, giving the image a surreal texture. The background fades into a gradient of soft pastel colors, enhancing the ethereal quality of the scene. The dandelion appears almost otherworldly, with its delicate structure and vibrant colors standing out against the blurred, abstract surroundings. A close-up shot with a dynamic zoom-in motion.",
+}
+HELIOS_SEED0, HELIOS_CHUNKS = 115000, 36
+HELIOS_REFERENCE = {  # (k, prompt index) -> sha256 of the latents
+}
+
+
 def latent_sha256(latents):
     import torch
     t = latents.detach().cpu().contiguous()
@@ -41,10 +52,15 @@ def latent_sha256(latents):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="specar-benchmark")
+    ap.add_argument("--backbone", choices=["krea", "helios"], default="krea")
     ap.add_argument("--weights", default="weights")
-    ap.add_argument("--k", type=int, nargs="+", default=[2, 7, 9])
+    ap.add_argument("--k", type=int, nargs="+", default=None, help="default: 2 7 9 (Krea), 7 (Helios)")
     ap.add_argument("--json", default=None, help="write per-video results here")
+    ap.add_argument("--save-mp4", default=None, help="Helios: also write each video here")
     a = ap.parse_args(argv)
+    if a.backbone == "helios":
+        return helios(a)
+    a.k = a.k or [2, 7, 9]
 
     import torch
     from .cli import run
@@ -64,6 +80,37 @@ def main(argv=None):
             rows.append({"k": k, "prompt": i, "seconds": round(secs, 2), "sha256": h, "bitwise": status})
             print(f"k={k} prompt {i}: {secs:6.1f} s  latents {status}", flush=True)
             del sess
+            torch.cuda.empty_cache()
+    if a.json:
+        with open(a.json, "w") as f:
+            json.dump(rows, f, indent=1)
+    print("bitwise check:", "FAILED" if failed else "all match")
+    return 1 if failed else 0
+
+
+def helios(a):
+    import os
+    import imageio.v2 as imageio
+    import torch
+    from .cli import run_helios
+    from .model_helios import HeliosSpecAR
+    ks = a.k or [7]
+    model = HeliosSpecAR(a.weights, list(HELIOS_PROMPTS.values()))
+    rows, failed = [], 0
+    for k in ks:
+        for i, prompt in HELIOS_PROMPTS.items():
+            latents, frames, secs = run_helios(model, prompt, k, HELIOS_CHUNKS, HELIOS_SEED0 + i)
+            h = latent_sha256(latents)
+            ref = HELIOS_REFERENCE.get((k, i))
+            status = "n/a" if ref is None else ("MATCH" if h == ref else "MISMATCH")
+            failed += status == "MISMATCH"
+            fh = hashlib.sha256(frames.tobytes()).hexdigest()
+            rows.append({"k": k, "prompt": i, "seconds": round(secs, 2), "sha256": h, "frames_sha256": fh, "bitwise": status})
+            print(f"k={k} prompt {i}: {secs:6.1f} s  latents {status}", flush=True)
+            if a.save_mp4:
+                os.makedirs(os.path.join(a.save_mp4, f"k{k}"), exist_ok=True)
+                imageio.mimwrite(os.path.join(a.save_mp4, f"k{k}", f"prompt_{i:03d}.mp4"), list(frames), fps=16, quality=7)
+            del latents, frames
             torch.cuda.empty_cache()
     if a.json:
         with open(a.json, "w") as f:

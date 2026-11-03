@@ -22,6 +22,33 @@ if _VENDOR not in sys.path:
     sys.path.insert(0, _VENDOR)
 os.environ.setdefault("DISABLE_SAGEATTENTION", "1")   # SageAttention changes numerics; FlashAttention 3 is used on Hopper
 
+
+def _ensure_flash_attention_3():
+    """Use a locally built FlashAttention 3 if present; otherwise load the prebuilt Hopper kernel from the Hugging Face
+    kernel hub (kernels-community/flash-attn3), so no compilation is needed. Krea's attention module imports
+    flash_attn_interface (FA3) and flash_attn (FA2 helpers); both names are served from the same FA3 kernel."""
+    try:
+        import flash_attn_interface  # noqa: F401
+    except ImportError:
+        try:
+            from kernels import get_kernel
+            sys.modules["flash_attn_interface"] = get_kernel("kernels-community/flash-attn3")
+        except Exception as e:  # no network or no Hopper GPU: Krea falls back to FlashAttention 2 if installed
+            print(f"FlashAttention 3 unavailable ({e}); outputs will not match the reference latents")
+            return
+    try:
+        import flash_attn  # noqa: F401
+    except ImportError:
+        import types
+        fa3 = sys.modules["flash_attn_interface"]
+        shim = types.ModuleType("flash_attn")
+        shim.flash_attn_func = fa3.flash_attn_func
+        shim.flash_attn_varlen_func = fa3.flash_attn_varlen_func
+        sys.modules["flash_attn"] = shim
+
+
+_ensure_flash_attention_3()
+
 DEV = "cuda"
 FRAME_SEQ_LENGTH = 1560          # tokens per latent frame at 832x480 (Krea pipeline constant)
 NUM_FRAME_PER_BLOCK = 3

@@ -10,37 +10,43 @@ large target generate k blocks spread evenly over the video. This repository run
 
 Paper: *SpecAR: Distributed Target Blocks for Fast Autoregressive Video Generation*, Hudeifa Hassan, Statite.
 
-## Install
+Project page: [statite.ai/specar](https://statite.ai/specar) · Paper: [PDF](https://statite.ai/specar/specar.pdf)
 
-Tested on one H100 80GB, CUDA 12.8, Python 3.11. Each backbone pins the library versions its reference outputs were
-produced with, so use one environment per backbone.
+## Quick start
+
+Needs one Hopper GPU with 80 GB (H100 or H200), a CUDA 12.8 driver and Python 3.11. Nothing has to be compiled:
+FlashAttention 3 is fetched prebuilt from the Hugging Face kernel hub on first use, and all weights are public.
+
+**Krea Realtime 14B** (about 50 GB of weights; a 26.6 s video in under a minute on an H100)
 
 ```bash
 git clone https://github.com/statite-ai/SpecAR && cd SpecAR
-pip install -e ".[krea]"      # or: pip install -e ".[helios]"
+python3.11 -m venv .venv-krea && source .venv-krea/bin/activate
+pip install -e ".[krea]"
+specar download --backbone krea
+specar generate --backbone krea --prompt "A papercraft coral reef full of colorful fish" --k 2 --out reef.mp4
 ```
 
-Krea Realtime needs FlashAttention 3 on Hopper GPUs: build it from the
-[flash-attention](https://github.com/Dao-AILab/flash-attention) repository (`cd hopper && python setup.py install`;
-20 to 40 minutes). Helios loads FlashAttention 3 from the Hugging Face kernel hub through `kernels`.
-
-## Download weights
+**Helios 14B** (about 150 GB of weights; a 74 s video in under 5 minutes on an H100 at k = 2)
 
 ```bash
-specar download --backbone krea --weights weights        # about 50 GB
-specar download --backbone helios --weights weights-helios  # about 150 GB
+git clone https://github.com/statite-ai/SpecAR && cd SpecAR
+python3.11 -m venv .venv-helios && source .venv-helios/bin/activate
+pip install -e ".[helios]"
+specar download --backbone helios
+specar generate --backbone helios --prompt "A papercraft coral reef full of colorful fish" --k 2 --out reef.mp4
 ```
 
-## Generate
+Each backbone pins the library versions its reference outputs were produced with, so keep one environment per
+backbone.
 
-```bash
-specar generate --backbone krea --prompt "A papercraft coral reef full of colorful fish" --k 7 --out reef.mp4
-specar generate --backbone helios --weights weights-helios --prompt "A papercraft coral reef full of colorful fish" --k 7 --out reef.mp4
-```
+## Options
 
-`--k` is the number of blocks the target generates, and `--blocks` the video length (default 36). The target generates
-blocks `floor(j * blocks / k + 1/2)` for `j = 0..k-1`; the drafter generates the rest. A Krea block is 3 latent
-frames (36 blocks = 426 frames, 26.6 s at 16 fps); a Helios block is a 33-frame chunk (36 chunks = 1185 frames, 74 s).
+`--k` is the number of blocks the target generates (2 is the fastest setting in the paper, 7 the default), and
+`--blocks` the video length (default 36). The target generates blocks `floor(j * blocks / k + 1/2)` for
+`j = 0..k-1`; the drafter generates the rest. A Krea block is 3 latent frames (36 blocks = 426 frames, 26.6 s at
+16 fps); a Helios block is a 33-frame chunk (36 chunks = 1185 frames, 74 s). `--seed` (default 42) and `--weights`
+(default `weights`) are also available.
 
 From Python:
 
@@ -70,7 +76,20 @@ specar-benchmark --backbone helios --weights weights-helios            # k = 7; 
 
 The benchmark prints the generation time of each video and compares its latents bit for bit with the reference
 latents behind the paper's results. A mismatch usually means a different attention kernel or different library
-versions.
+versions. The times it prints are generation time only; the latencies in the paper also include session setup and
+frame decoding.
+
+## Citation
+
+```bibtex
+@misc{hassan2026specar,
+  title  = {SpecAR: Distributed Target Blocks for Fast Autoregressive Video Generation},
+  author = {Hassan, Hudeifa},
+  year   = {2026},
+  note   = {Preprint},
+  url    = {https://statite.ai/specar}
+}
+```
 
 ## License
 

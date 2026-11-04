@@ -19,7 +19,7 @@ compiled: FlashAttention 3 is fetched prebuilt from the Hugging Face kernel hub 
 On a shared cloud machine, log in to Hugging Face first (`hf auth login`, a free account is enough): anonymous
 downloads from shared IPs are often rate-limited.
 
-**Krea Realtime 14B** (about 50 GB download; a 26.6 s video in under a minute on an H100)
+**Krea Realtime 14B** (about 50 GB download; a 26.6 s video generates in under a minute on an H100, after about 3 minutes of model loading)
 
 ```bash
 git clone https://github.com/statite-ai/SpecAR && cd SpecAR
@@ -30,7 +30,7 @@ specar generate --backbone krea --prompt "A papercraft coral reef full of colorf
 ```
 
 **Helios 14B** (about 150 GB download for the two models on disk, about 66 GB of GPU memory while generating; a 74 s
-video in under 5 minutes on an H100 at k = 2)
+video generates in under 5 minutes on an H100 at k = 2, after about 1 minute of model loading)
 
 ```bash
 git clone https://github.com/statite-ai/SpecAR && cd SpecAR

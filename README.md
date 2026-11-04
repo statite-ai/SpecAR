@@ -8,10 +8,10 @@ large target generate k blocks spread evenly over the video. This repository run
 | `krea` | [Krea Realtime 14B](https://huggingface.co/krea/krea-realtime-video) | [Self-Forcing](https://github.com/guandeh17/Self-Forcing) 1.3B |
 | `helios` | [Helios-Base 14B](https://huggingface.co/BestWishYsh/Helios-Base) | [Helios-Distilled 14B](https://huggingface.co/BestWishYsh/Helios-Distilled) |
 
-<p align="center"><img src="assets/demo.webp" width="832" alt="Four SpecAR videos on Krea Realtime 14B: a tabby cat in a garden, two dogs in a neon city, a tropical fish on a reef, a singer on a stage"></p>
-<p align="center"><sub>SpecAR on Krea Realtime 14B at k = 7: the first 8 s of four 26.6 s videos (<code>specar generate --example cat</code>,
-<code>dogs</code>, <code>fish</code>, <code>singer</code>). The <a href="https://statite.ai/specar">project page</a> races them against
-target-only generation and SDVG.</sub></p>
+<p align="center"><img src="assets/race.webp" width="1248" alt="Speed race on Krea Realtime 14B: target-only generation finishes in 87.6 s, SDVG in 56.8 s, SpecAR at k = 2 in 32.8 s (2.67x faster)"></p>
+<p align="center"><sub>Krea Realtime 14B on one H100, same prompt and seed. Each video plays as fast as its method generates it,
+block by block; generation time is shown at 3&times; speed. SpecAR (k = 2) finishes in 32.8 s, 2.67&times; faster than
+target-only generation (87.6 s); SDVG at the same target budget takes 56.8 s. Latencies from Table 1 of the paper.</sub></p>
 
 Paper: *SpecAR: Distributed Target Blocks for Fast Autoregressive Video Generation*, Hudeifa Hassan, Statite.
 
@@ -85,6 +85,10 @@ the backbone, prompt, seed and k; any flag you give yourself takes precedence.
 | `singer` | krea | 42 | A woman singing and standing in a concert stage with a brigh… |
 | `helios-fish` | helios | 115059 | A vibrant tropical fish swimming gracefully among colorful c… |
 | `dandelion` | helios | 115081 | A hyper-realistic macro photograph capturing the intricate d… |
+
+<p align="center"><img src="assets/demo.webp" width="832" alt="Four SpecAR videos on Krea Realtime 14B: a tabby cat in a garden, two dogs in a neon city, a tropical fish on a reef, a singer on a stage"></p>
+<p align="center"><sub>SpecAR on Krea Realtime 14B at k = 7: the first 8 s of four 26.6 s videos (<code>specar generate --example cat</code>,
+<code>dogs</code>, <code>fish</code>, <code>singer</code>).</sub></p>
 
 `cat`, `dogs`, `fish` and `singer` are the videos on the project page. `mammoths`, `spaceman`, `monster`, `reef`,
 `helios-fish` and `dandelion` have reference latents in `specar-benchmark`, so they reproduce bit for bit.

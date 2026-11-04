@@ -1,0 +1,92 @@
+{
+  "mammoths": {
+    "backbone": "krea",
+    "prompt": "Several giant wooly mammoths approach treading through a snowy meadow, their long wooly fur lightly blows in the wind as they walk, snow covered trees and dramatic snow capped mountains in the distance, mid afternoon light with wispy clouds and a sun high in the distance creates a warm glow, the low camera view is stunning capturing the large furry mammal with beautiful photography, depth of field.",
+    "seed": 42,
+    "k": 7,
+    "blocks": 36,
+    "source": "MovieGenVideoBench #1",
+    "note": "reference latents in specar-benchmark"
+  },
+  "spaceman": {
+    "backbone": "krea",
+    "prompt": "A movie trailer featuring the adventures of the 30 year old space man wearing a red wool knitted motorcycle helmet, blue sky, salt desert, cinematic style, shot on 35mm film, vivid colors.",
+    "seed": 42,
+    "k": 7,
+    "blocks": 36,
+    "source": "MovieGenVideoBench #2",
+    "note": "reference latents in specar-benchmark"
+  },
+  "monster": {
+    "backbone": "krea",
+    "prompt": "Animated scene features a close-up of a short fluffy monster kneeling beside a melting red candle. The art style is 3D and realistic, with a focus on lighting and texture. The mood of the painting is one of wonder and curiosity, as the monster gazes at the flame with wide eyes and open mouth. Its pose and expression convey a sense of innocence and playfulness, as if it is exploring the world around it for the first time. The use of warm colors and dramatic lighting further enhances the cozy atmosphere of the image.",
+    "seed": 42,
+    "k": 7,
+    "blocks": 36,
+    "source": "MovieGenVideoBench #4",
+    "note": "reference latents in specar-benchmark"
+  },
+  "reef": {
+    "backbone": "krea",
+    "prompt": "A gorgeously rendered papercraft world of a coral reef, rife with colorful fish and sea creatures.",
+    "seed": 42,
+    "k": 7,
+    "blocks": 36,
+    "source": "MovieGenVideoBench #5",
+    "note": "reference latents in specar-benchmark"
+  },
+  "cat": {
+    "backbone": "krea",
+    "prompt": "A white and orange tabby cat is seen happily darting through a dense garden, as if chasing something. Its eyes are wide and happy as it jogs forward, scanning the branches, flowers, and leaves as it walks. The path is narrow as it makes its way between all the plants. the scene is captured from a ground-level angle, following the cat closely, giving a low and intimate perspective. The image is cinematic with warm tones and a grainy texture. The scattered daylight between the leaves and plants above creates a warm contrast, accentuating the cat’s orange fur. The shot is clear and sharp, with a shallow depth of field.",
+    "seed": 42,
+    "k": 7,
+    "blocks": 36,
+    "source": "MovieGenVideoBench #43",
+    "note": "shown on the project page"
+  },
+  "dogs": {
+    "backbone": "krea",
+    "prompt": "A Samoyed and a Golden Retriever dog are playfully romping through a futuristic neon city at night. The neon lights emitted from the nearby buildings glistens off of their fur.",
+    "seed": 42,
+    "k": 7,
+    "blocks": 36,
+    "source": "MovieGenVideoBench #47",
+    "note": "shown on the project page"
+  },
+  "fish": {
+    "backbone": "krea",
+    "prompt": "A tropical fish swimming in ocean reefs",
+    "seed": 42,
+    "k": 7,
+    "blocks": 36,
+    "source": "MovieGenVideoBench #58",
+    "note": "shown on the project page"
+  },
+  "singer": {
+    "backbone": "krea",
+    "prompt": "A woman singing and standing in a concert stage with a bright light in the background.",
+    "seed": 42,
+    "k": 7,
+    "blocks": 36,
+    "source": "MovieGenVideoBench #115",
+    "note": "shown on the project page"
+  },
+  "helios-fish": {
+    "backbone": "helios",
+    "prompt": "A vibrant tropical fish swimming gracefully among colorful coral reefs in a clear, turquoise ocean. The fish has bright blue and yellow scales with a small, distinctive orange spot on its side, its fins moving fluidly. The coral reefs are alive with a variety of marine life, including small schools of colorful fish and sea turtles gliding by. The water is crystal clear, allowing for a view of the sandy ocean floor below. The reef itself is adorned with a mix of hard and soft corals in shades of red, orange, and green. The photo captures the fish from a slightly elevated angle, emphasizing its lively movements and the vivid colors of its surroundings. A close-up shot with dynamic movement.",
+    "seed": 115059,
+    "k": 7,
+    "blocks": 36,
+    "source": "HeliosBench #59",
+    "note": "reference latents in specar-benchmark"
+  },
+  "dandelion": {
+    "backbone": "helios",
+    "prompt": "A hyper-realistic macro photograph capturing the intricate details of a dandelion, zooming in at an incredible speed to reveal a dream-like, abstract world. The petals are softly blurred, creating a mesmerizing effect that blends reality with fantasy. Each fiber and grain of pollen is vividly detailed, giving the image a surreal texture. The background fades into a gradient of soft pastel colors, enhancing the ethereal quality of the scene. The dandelion appears almost otherworldly, with its delicate structure and vibrant colors standing out against the blurred, abstract surroundings. A close-up shot with a dynamic zoom-in motion.",
+    "seed": 115081,
+    "k": 7,
+    "blocks": 36,
+    "source": "HeliosBench #81",
+    "note": "reference latents in specar-benchmark"
+  }
+}

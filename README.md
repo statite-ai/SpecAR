@@ -16,6 +16,8 @@ Project page: [statite.ai/specar](https://statite.ai/specar) · Paper: [PDF](htt
 
 Needs one NVIDIA Hopper GPU (H100 80GB or H200 141GB), a CUDA 12.8 driver and Python 3.11. Nothing has to be
 compiled: FlashAttention 3 is fetched prebuilt from the Hugging Face kernel hub on first use, and all weights are public.
+On a shared cloud machine, log in to Hugging Face first (`hf auth login`, a free account is enough): anonymous
+downloads from shared IPs are often rate-limited.
 
 **Krea Realtime 14B** (about 50 GB download; a 26.6 s video in under a minute on an H100)
 

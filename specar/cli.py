@@ -55,19 +55,36 @@ def resolve(a):
     return a
 
 
+def _hub(fn, *args, **kw):
+    """Call a Hugging Face download, waiting out rate limits (anonymous downloads from shared cloud IPs get them)."""
+    from huggingface_hub.errors import HfHubHTTPError
+    for attempt in range(6):
+        try:
+            return fn(*args, **kw)
+        except HfHubHTTPError as e:
+            if getattr(e.response, "status_code", None) != 429 or attempt == 5:
+                if getattr(e.response, "status_code", None) == 429:
+                    sys.exit("Hugging Face is rate-limiting this machine's IP. Log in with `hf auth login` "
+                             "(a free account is enough) or set HF_TOKEN, then run the download again.")
+                raise
+            wait = 60 * (attempt + 1)
+            print(f"Hugging Face rate limit; retrying in {wait} s (log in with `hf auth login` to avoid this)", flush=True)
+            time.sleep(wait)
+
+
 def download(weights, backbone="krea"):
     from huggingface_hub import hf_hub_download, snapshot_download
     os.makedirs(weights, exist_ok=True)
     if backbone == "helios":
         for name, skip in (("Helios-Base", "transformer_init/*"), ("Helios-Distilled", "transformer_ode/*")):
-            snapshot_download(f"BestWishYsh/{name}", local_dir=os.path.join(weights, name), ignore_patterns=[skip])
+            _hub(snapshot_download, f"BestWishYsh/{name}", local_dir=os.path.join(weights, name), ignore_patterns=[skip])
         print(f"weights ready in {weights}")
         return
-    hf_hub_download("krea/krea-realtime-video", "krea-realtime-video-14b.safetensors", local_dir=weights)
-    p = hf_hub_download("gdhe17/Self-Forcing", "checkpoints/self_forcing_dmd.pt", local_dir=weights)
+    _hub(hf_hub_download, "krea/krea-realtime-video", "krea-realtime-video-14b.safetensors", local_dir=weights)
+    p = _hub(hf_hub_download, "gdhe17/Self-Forcing", "checkpoints/self_forcing_dmd.pt", local_dir=weights)
     os.replace(p, os.path.join(weights, "self_forcing_dmd.pt"))
-    snapshot_download("Wan-AI/Wan2.1-T2V-1.3B", local_dir=os.path.join(weights, "Wan2.1-T2V-1.3B"))
-    hf_hub_download("Wan-AI/Wan2.1-T2V-14B", "config.json", local_dir=os.path.join(weights, "Wan2.1-T2V-14B"))
+    _hub(snapshot_download, "Wan-AI/Wan2.1-T2V-1.3B", local_dir=os.path.join(weights, "Wan2.1-T2V-1.3B"))
+    _hub(hf_hub_download, "Wan-AI/Wan2.1-T2V-14B", "config.json", local_dir=os.path.join(weights, "Wan2.1-T2V-14B"))
     print(f"weights ready in {weights}")
 
 

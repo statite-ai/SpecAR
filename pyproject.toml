@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,7 +8,9 @@ version = "0.1.0"
 description = "SpecAR: distributed target blocks for fast autoregressive video generation"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Apache-2.0; CC-BY-NC-SA-4.0 for specar/model_krea.py and specar/_vendor/krea/" }
+# Apache-2.0, except specar/model_krea.py and specar/_vendor/krea/ (CC-BY-NC-SA-4.0); see README "License"
+license = "Apache-2.0 AND CC-BY-NC-SA-4.0"
+license-files = ["LICENSE", "specar/_vendor/helios/LICENSE.txt", "specar/_vendor/krea/LICENSE.md", "specar/_vendor/krea/NOTICE.md"]
 authors = [{ name = "Hudeifa Hassan", email = "hudeifa@statite.ai" }]
 dependencies = [
     "torch",

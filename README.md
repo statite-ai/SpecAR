@@ -24,7 +24,7 @@ downloads from shared IPs are often rate-limited.
 ```bash
 git clone https://github.com/statite-ai/SpecAR && cd SpecAR
 python3.11 -m venv .venv-krea && source .venv-krea/bin/activate
-pip install -e ".[krea]"
+pip install ".[krea]"
 specar download --backbone krea
 specar generate --backbone krea --prompt "A papercraft coral reef full of colorful fish" --k 2 --out reef.mp4
 ```
@@ -35,7 +35,7 @@ video generates in under 5 minutes on an H100 at k = 2, after about 1 minute of 
 ```bash
 git clone https://github.com/statite-ai/SpecAR && cd SpecAR
 python3.11 -m venv .venv-helios && source .venv-helios/bin/activate
-pip install -e ".[helios]"
+pip install ".[helios]"
 specar download --backbone helios
 specar generate --backbone helios --prompt "A papercraft coral reef full of colorful fish" --k 2 --out reef.mp4
 ```

@@ -14,10 +14,12 @@ Project page: [statite.ai/specar](https://statite.ai/specar) · Paper: [PDF](htt
 
 ## Quick start
 
-Needs one Hopper GPU with 80 GB (H100 or H200), a CUDA 12.8 driver and Python 3.11. Nothing has to be compiled:
-FlashAttention 3 is fetched prebuilt from the Hugging Face kernel hub on first use, and all weights are public.
+Needs one NVIDIA Hopper GPU (H100 80GB or H200 141GB), a CUDA 12.8 driver and Python 3.11. Nothing has to be
+compiled: FlashAttention 3 is fetched prebuilt from the Hugging Face kernel hub on first use, and all weights are public.
+On a shared cloud machine, log in to Hugging Face first (`hf auth login`, a free account is enough): anonymous
+downloads from shared IPs are often rate-limited.
 
-**Krea Realtime 14B** (about 50 GB of weights; a 26.6 s video in under a minute on an H100)
+**Krea Realtime 14B** (about 50 GB download; a 26.6 s video generates in under a minute on an H100, after about 3 minutes of model loading)
 
 ```bash
 git clone https://github.com/statite-ai/SpecAR && cd SpecAR
@@ -27,7 +29,8 @@ specar download --backbone krea
 specar generate --backbone krea --prompt "A papercraft coral reef full of colorful fish" --k 2 --out reef.mp4
 ```
 
-**Helios 14B** (about 150 GB of weights; a 74 s video in under 5 minutes on an H100 at k = 2)
+**Helios 14B** (about 150 GB download for the two models on disk, about 66 GB of GPU memory while generating; a 74 s
+video generates in under 5 minutes on an H100 at k = 2, after about 1 minute of model loading)
 
 ```bash
 git clone https://github.com/statite-ai/SpecAR && cd SpecAR
@@ -40,13 +43,46 @@ specar generate --backbone helios --prompt "A papercraft coral reef full of colo
 Each backbone pins the library versions its reference outputs were produced with, so keep one environment per
 backbone.
 
-## Options
+## Choosing what to generate
 
-`--k` is the number of blocks the target generates (2 is the fastest setting in the paper, 7 the default), and
-`--blocks` the video length (default 36). The target generates blocks `floor(j * blocks / k + 1/2)` for
-`j = 0..k-1`; the drafter generates the rest. A Krea block is 3 latent frames (36 blocks = 426 frames, 26.6 s at
-16 fps); a Helios block is a 33-frame chunk (36 chunks = 1185 frames, 74 s). `--seed` (default 42) and `--weights`
-(default `weights`) are also available.
+```bash
+specar generate --prompt "A spacecraft flying above Mars" --seconds 10 --k 2 --out mars.mp4
+specar generate --example cat --out cat.mp4      # a curated prompt with its paper settings
+specar examples                                  # list the curated prompts
+```
+
+- **Prompt:** `--prompt "..."` for your own text, or `--example NAME` for one of the ten curated prompts below.
+- **Length:** `--seconds` gives the video length in seconds; it is rounded to whole blocks and the command prints the
+  length it will actually generate. `--blocks` sets the exact block count instead. A Krea block is 12 frames
+  (36 blocks = 426 frames, 26.6 s at 16 fps); a Helios block is a 33-frame chunk (36 chunks = 1185 frames, 74 s).
+  **36 blocks is the tested length** (all results and reference latents); shorter videos also run. Longer
+  videos need more GPU memory and have not been tested.
+- **Target budget:** `--k` is the number of blocks the target generates (2 is the fastest setting in the paper, 7 the
+  default); the drafter generates the rest. `k` cannot exceed the number of blocks. The target generates blocks
+  `floor(j * blocks / k + 1/2)` for `j = 0..k-1`.
+- **Output:** `--out` (default `specar.mp4`); `--seed` (default 42); `--weights` (default `weights`);
+  `--save-latents` also writes the latents next to the video.
+
+### Curated prompts
+
+All come from the paper's evaluation sets and use the paper's settings (seed, k = 7, 36 blocks). `--example` fills in
+the backbone, prompt, seed and k; any flag you give yourself takes precedence.
+
+| Name | Backbone | Seed | Prompt (start) |
+|---|---|---|---|
+| `mammoths` | krea | 42 | Several giant wooly mammoths approach treading through a sno… |
+| `spaceman` | krea | 42 | A movie trailer featuring the adventures of the 30 year old… |
+| `monster` | krea | 42 | Animated scene features a close-up of a short fluffy monster… |
+| `reef` | krea | 42 | A gorgeously rendered papercraft world of a coral reef, rife… |
+| `cat` | krea | 42 | A white and orange tabby cat is seen happily darting through… |
+| `dogs` | krea | 42 | A Samoyed and a Golden Retriever dog are playfully romping t… |
+| `fish` | krea | 42 | A tropical fish swimming in ocean reefs |
+| `singer` | krea | 42 | A woman singing and standing in a concert stage with a brigh… |
+| `helios-fish` | helios | 115059 | A vibrant tropical fish swimming gracefully among colorful c… |
+| `dandelion` | helios | 115081 | A hyper-realistic macro photograph capturing the intricate d… |
+
+`cat`, `dogs`, `fish` and `singer` are the videos on the project page. `mammoths`, `spaceman`, `monster`, `reef`,
+`helios-fish` and `dandelion` have reference latents in `specar-benchmark`, so they reproduce bit for bit.
 
 From Python:
 

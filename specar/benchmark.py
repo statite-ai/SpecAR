@@ -4,6 +4,9 @@
 Krea Realtime: SHA-256 of the committed latents (bf16, [1, 108, 16, 60, 104]) for four prompts at seed 42, H=36.
 Helios: SHA-256 of the latents for two HeliosBench prompts at seed 115000 + prompt index, H=36.
 Both were produced on one H100 80GB with FlashAttention 3 and equal the outputs behind the paper's results.
+The bitwise check applies to that configuration only (Hopper, FlashAttention 3, 5 steps). Other GPUs and attention
+backends compute the same model with different kernels: their latents differ in the last bits, so the benchmark
+reports their hashes and times without a pass/fail verdict.
 """
 import argparse
 import hashlib
@@ -59,6 +62,9 @@ def main(argv=None):
     ap.add_argument("--k", type=int, nargs="+", default=None, help="default: 2 7 9 (Krea), 7 (Helios)")
     ap.add_argument("--json", default=None, help="write per-video results here")
     ap.add_argument("--save-mp4", default=None, help="Helios: also write each video here")
+    ap.add_argument("--attention", choices=["auto", "fa2", "fa3", "fa4"], help="Krea: attention kernel; default auto")
+    ap.add_argument("--steps", type=int, default=5, help="Krea: denoising steps per block; default 5")
+    ap.add_argument("--save-latents", default=None, help="Krea: also save each video's latents (.pt) in this folder")
     a = ap.parse_args(argv)
     if a.backbone == "helios":
         return helios(a)
@@ -68,24 +74,38 @@ def main(argv=None):
     from .cli import run
     from .model_krea import Models
     torch.set_grad_enabled(False)
-    models = Models(a.weights)
+    from . import attention
+    models = Models(a.weights, attention=a.attention)
+    env = attention.describe()
+    settings = {"backbone": "krea", "blocks": BLOCKS, "seed": SEED, "steps": a.steps, "k": a.k,
+                "lazy_target_kv": True, "skip_draft_on_anchors": True}
+    is_reference = env["attention"] == "fa3" and env["compute_capability"].startswith("9.") and a.steps == 5
+    print(f"{env['gpu']} (compute capability {env['compute_capability']}), attention {env['attention']}, "
+          f"torch {env['versions']['torch']}, {a.steps} steps", flush=True)
     embeds = models.encode_prompts(list(PROMPTS.values()))
-    run(models, PROMPTS[1], a.k[0], BLOCKS, SEED, embeds[PROMPTS[1]])          # warm-up (kernels, allocator)
+    run(models, PROMPTS[1], a.k[0], BLOCKS, SEED, embeds[PROMPTS[1]], steps=a.steps)   # warm-up (kernels, allocator)
     rows, failed = [], 0
     for k in a.k:
         for i, prompt in PROMPTS.items():
-            sess, _, secs = run(models, prompt, k, BLOCKS, SEED, embeds[prompt])
+            sess, _, secs = run(models, prompt, k, BLOCKS, SEED, embeds[prompt], steps=a.steps)
             h = latent_sha256(sess.all_latents)
-            ref = REFERENCE.get((k, i))
+            ref = REFERENCE.get((k, i)) if is_reference else None
             status = "n/a" if ref is None else ("MATCH" if h == ref else "MISMATCH")
             failed += status == "MISMATCH"
             rows.append({"k": k, "prompt": i, "seconds": round(secs, 2), "sha256": h, "bitwise": status})
-            print(f"k={k} prompt {i}: {secs:6.1f} s  latents {status}", flush=True)
+            print(f"k={k} prompt {i}: {secs:6.1f} s  latents {status if is_reference else h[:12]}", flush=True)
+            if a.save_latents:
+                import os
+                os.makedirs(a.save_latents, exist_ok=True)
+                torch.save(sess.all_latents.cpu(), os.path.join(a.save_latents, f"k{k}_prompt{i}.pt"))
             del sess
             torch.cuda.empty_cache()
     if a.json:
         with open(a.json, "w") as f:
-            json.dump(rows, f, indent=1)
+            json.dump({"environment": env, "settings": settings, "results": rows}, f, indent=1)
+    if not is_reference:
+        print("bitwise check: not applicable (the reference latents are for Hopper + FlashAttention 3 + 5 steps)")
+        return 0
     print("bitwise check:", "FAILED" if failed else "all match")
     return 1 if failed else 0
 

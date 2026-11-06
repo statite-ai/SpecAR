@@ -19,8 +19,11 @@ Project page: [statite.ai/specar](https://statite.ai/specar) · Paper: [PDF](htt
 
 ## Quick start
 
-Needs one NVIDIA Hopper GPU (H100 80GB or H200 141GB), a CUDA 12.8 driver and Python 3.11. Nothing has to be
-compiled: FlashAttention 3 is fetched prebuilt from the Hugging Face kernel hub on first use, and all weights are public.
+Needs one NVIDIA data-centre GPU, a CUDA 12.8 driver and Python 3.11: Hopper (H100 80GB, H200 141GB) for both
+backbones, or Blackwell (B200) for Krea Realtime. The install and the commands are the same on either. Nothing has
+to be compiled: SpecAR picks the attention kernel for the GPU when it starts, FlashAttention 3 on Hopper (fetched
+prebuilt from the Hugging Face kernel hub on first use) and FlashAttention 4 on Blackwell (installed with the
+package). All weights are public.
 On a shared cloud machine, log in to Hugging Face first (`hf auth login`, a free account is enough): anonymous
 downloads from shared IPs are often rate-limited.
 
@@ -67,6 +70,11 @@ specar examples                                  # list the curated prompts
   `floor(j * blocks / k + 1/2)` for `j = 0..k-1`.
 - **Output:** `--out` (default `specar.mp4`); `--seed` (default 42); `--weights` (default `weights`);
   `--save-latents` also writes the latents next to the video.
+- **Execution (Krea):** `--attention auto|fa3|fa4|fa2` overrides the attention kernel (default `auto`; the
+  environment variable `SPECAR_ATTENTION` does the same); `--steps` sets the denoising steps per block (default 5,
+  the tested setting). The command prints the kernel it is using. The same prompt and seed give a different video on
+  a different GPU family or attention kernel: the model is the same, but small numerical differences grow over the
+  rollout.
 
 ### Curated prompts
 
@@ -119,9 +127,10 @@ specar-benchmark --backbone krea --weights weights                     # k = 2, 
 specar-benchmark --backbone helios --weights weights-helios            # k = 7; two prompts, about 11 min each
 ```
 
-The benchmark prints the generation time of each video and compares its latents bit for bit with the reference
-latents behind the paper's results. A mismatch usually means a different attention kernel or different library
-versions. The times it prints are generation time only; the latencies in the paper also include session setup and
+The benchmark prints the generation time of each video and, on a Hopper GPU with FlashAttention 3 and 5 steps,
+compares its latents bit for bit with the reference latents behind the paper's results. A mismatch there usually
+means different library versions. On other GPUs and attention kernels it reports times and latent hashes without a
+verdict. `--json` records the GPU, library versions, attention kernel and settings with the results. The times it prints are generation time only; the latencies in the paper also include session setup and
 frame decoding.
 
 ## Citation
@@ -138,7 +147,8 @@ frame decoding.
 
 ## License
 
-SpecAR's own code (`specar/schedule.py`, `specar/cli.py`, `specar/benchmark.py`, `specar/model_helios.py`) is
+SpecAR's own code (`specar/schedule.py`, `specar/attention.py`, `specar/cli.py`, `specar/benchmark.py`,
+`specar/model_helios.py`) is
 Apache-2.0 (`LICENSE`). `specar/_vendor/helios/` is copied unchanged from
 [Helios](https://github.com/PKU-YuanGroup/Helios) (Apache-2.0, `specar/_vendor/helios/LICENSE.txt`).
 

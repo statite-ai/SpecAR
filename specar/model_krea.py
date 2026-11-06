@@ -3,7 +3,7 @@
 # KV-cache layout and loaders follow Krea's session code so that SpecAR outputs match it bit for bit.
 """SpecAR decoder for Krea Realtime 14B (target) with the Self-Forcing 1.3B model as drafter.
 
-Per block b of H blocks (3 latent frames each, 5 denoising steps):
+Per block b of H blocks (3 latent frames each, 5 denoising steps by default):
   1. rebuild the drafter's context KV cache from the committed latents (the target's only on target blocks)
   2. draw the block's step noises from the session RNG, always, so the RNG stream does not depend on the schedule
   3. target block (b in the schedule): the 14B target denoises it; otherwise the 1.3B drafter does
@@ -20,34 +20,29 @@ import torch
 _VENDOR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_vendor", "krea")
 if _VENDOR not in sys.path:
     sys.path.insert(0, _VENDOR)
-os.environ.setdefault("DISABLE_SAGEATTENTION", "1")   # SageAttention changes numerics; FlashAttention 3 is used on Hopper
+os.environ.setdefault("DISABLE_SAGEATTENTION", "1")   # SageAttention changes numerics
 
 
-def _ensure_flash_attention_3():
-    """Use a locally built FlashAttention 3 if present; otherwise load the prebuilt Hopper kernel from the Hugging Face
-    kernel hub (kernels-community/flash-attn3), so no compilation is needed. Krea's attention module imports
-    flash_attn_interface (FA3) and flash_attn (FA2 helpers); both names are served from the same FA3 kernel."""
-    try:
-        import flash_attn_interface  # noqa: F401
-    except ImportError:
-        try:
-            from kernels import get_kernel
-            sys.modules["flash_attn_interface"] = get_kernel("kernels-community/flash-attn3")
-        except Exception as e:  # no network or no Hopper GPU: Krea falls back to FlashAttention 2 if installed
-            print(f"FlashAttention 3 unavailable ({e}); outputs will not match the reference latents")
-            return
-    try:
-        import flash_attn  # noqa: F401
-    except ImportError:
-        import types
-        fa3 = sys.modules["flash_attn_interface"]
-        shim = types.ModuleType("flash_attn")
-        shim.flash_attn_func = fa3.flash_attn_func
-        shim.flash_attn_varlen_func = fa3.flash_attn_varlen_func
-        sys.modules["flash_attn"] = shim
+def _install_attention(backend=None):
+    """Route every attention call in the vendored Krea/Wan code through specar.attention, which picks the kernel for
+    this GPU (FlashAttention 3 on Hopper, 4 on Blackwell; see attention.py). Call after MODEL_FOLDER is set."""
+    import importlib
+    from . import attention as A
+    name = A.select(backend)
+    if sys.path[0] != _VENDOR:          # a kernel package may have put its own `utils` ahead of Krea's
+        if _VENDOR in sys.path:
+            sys.path.remove(_VENDOR)
+        sys.path.insert(0, _VENDOR)
+    importlib.import_module("wan.modules.attention")
+    for mod_name, mod in list(sys.modules.items()):
+        if mod_name == "wan" or mod_name.startswith("wan."):
+            if hasattr(mod, "flash_attention"):
+                mod.flash_attention = A.flash_attention
+            for flag in ("FLASH_ATTN_2_AVAILABLE", "FLASH_ATTN_3_AVAILABLE"):
+                if hasattr(mod, flag):
+                    setattr(mod, flag, True)
+    return name
 
-
-_ensure_flash_attention_3()
 
 DEV = "cuda"
 FRAME_SEQ_LENGTH = 1560          # tokens per latent frame at 832x480 (Krea pipeline constant)
@@ -136,9 +131,10 @@ def load_vae():
 class Models:
     """Loads the target, drafter, text encoder and VAE from one weights directory (see `specar download`)."""
 
-    def __init__(self, weights, timestep_shift=5.0):
+    def __init__(self, weights, timestep_shift=5.0, attention=None):
         weights = os.path.abspath(weights)
         os.environ["MODEL_FOLDER"] = weights          # read by the vendored Krea code at import time
+        self.attention = _install_attention(attention)
         _install_config_only_loader()
         self.text_encoder = load_text_encoder()
         self.vae_encoder, self.vae_decoder = load_vae()

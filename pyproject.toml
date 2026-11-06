@@ -20,7 +20,8 @@ dependencies = [
     "huggingface-hub",
 ]
 
-# Exact versions the reference hashes were produced with; one environment per backbone.
+# Exact versions the reference hashes were produced with; one environment per backbone. The krea environment is the
+# same on Hopper and Blackwell GPUs.
 [project.optional-dependencies]
 krea = [
     "torch==2.8.0",
@@ -43,7 +44,10 @@ krea = [
     "python-dotenv==1.1.1",
     "imageio==2.37.0",
     "imageio-ffmpeg==0.6.0",
-    "kernels==0.12.3",
+    "kernels==0.12.3",              # FlashAttention 3 for Hopper, fetched prebuilt on first use
+    "flash-attn-4==4.0.0b38",       # FlashAttention 4 for Blackwell
+    "nvidia-cutlass-dsl==4.8.1",
+    "quack-kernels==0.6.5",
 ]
 helios = [
     "torch==2.10.0",

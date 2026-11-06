@@ -172,7 +172,8 @@ def _zero_kv(cache):
 class SpecARSession:
     def __init__(self, models, prompt, seed, num_blocks, anchors, prompt_embeds=None, width=832, height=480,
                  kv_cache_num_frames=3, num_denoising_steps=5, timestep_shift=5.0, strength=1.0,
-                 keep_first_frame=False, lazy_target_kv=True, skip_draft_on_anchors=True, frame_callback=None):
+                 keep_first_frame=False, lazy_target_kv=True, skip_draft_on_anchors=True, frame_callback=None,
+                 start_image=None):
         from utils.scheduler import FlowMatchScheduler
         from v2v import get_denoising_schedule
         self.models = models
@@ -197,7 +198,9 @@ class SpecARSession:
         self.block_times = {}     # block -> seconds (cuda-synced)
         # RNG and noise: identical draw order to Krea's session (noise tensor first, then per-block step noises)
         self.rnd = torch.Generator(self.gpu).manual_seed(seed)
-        latent_shape = [1, num_blocks * self.nfpb, 16, self.latent_height, self.latent_width]
+        # image-to-video: the start image takes the first block of latent frames, the video follows it
+        self.has_start_image = start_image is not None
+        latent_shape = [1, (num_blocks + self.has_start_image) * self.nfpb, 16, self.latent_height, self.latent_width]
         self.all_latents = torch.zeros(latent_shape, device=self.gpu, dtype=torch.bfloat16).contiguous()
         self.noise = torch.randn(latent_shape, device=self.gpu, dtype=torch.bfloat16, generator=self.rnd).contiguous()
         # attention window and caches, as init_models does
@@ -222,6 +225,18 @@ class SpecARSession:
         self.conditional_dict = {k: v.to(dtype=torch.bfloat16).contiguous() for k, v in cond.items()}
         self.current_prompt_embeds = self.conditional_dict["prompt_embeds"]
         self.last_pred = None
+        self.start_latents = self._encode_start_image(start_image) if self.has_start_image else None
+
+    def _encode_start_image(self, image):
+        """Krea's setup_start_frame: the image (PIL, RGB, any size; resized to the video size) repeated over one
+        context window and VAE-encoded to nfpb latent frames."""
+        import torchvision.transforms.functional as TF
+        from v2v import encode_video_latent
+        n = 1 + (self.kv_cache_num_frames - 1) * 4
+        t = TF.to_tensor(image).to(dtype=torch.float16).to(DEV).sub_(0.5).mul_(2.0)
+        return encode_video_latent(self.models.vae_encoder, [None] * 55, resample_to=16, max_frames=81,
+                                   video_path_or_url=None, frames=torch.stack([t] * n), height=480, width=832,
+                                   stream=False)[0].transpose(0, 1)[None]
 
     # ---- context ------------------------------------------------------------------------------------------
     def _clean_context_frames(self):
@@ -255,7 +270,10 @@ class SpecARSession:
         if self.block_idx == 0:
             _zero_kv(self.target_kv)
             _zero_kv(self.drafter_kv)
-            return self.current_start_frame
+            if self.start_latents is None:
+                return self.current_start_frame
+            self.current_start_frame = self.start_latents.shape[1]       # the first block attends to the start image
+            self.all_latents[:, :self.current_start_frame] = self.start_latents
         for block in self.models.target.model.blocks:
             block.self_attn.num_frame_per_block = self.nfpb
         start = min(self.current_start_frame, self.kv_cache_num_frames)
@@ -314,7 +332,7 @@ class SpecARSession:
         if not (is_anchor and self.skip_draft_on_anchors):
             pred = self._denoise(self.models.drafter, self.drafter_kv, self.drafter_ca, start, noisy_input, step_noises, cond, "D")
         if is_anchor:
-            if self.lazy_target_kv and idx != 0:
+            if self.lazy_target_kv and (idx != 0 or self.has_start_image):
                 self._build_target_context()
             pred = self._denoise(self.models.target, self.target_kv, self.target_ca, start, original.clone(), step_noises, cond, "T")
         self.all_latents[:, s:e] = pred
@@ -334,7 +352,8 @@ class SpecARSession:
         return pixels
 
     def generate(self):
-        """Run all blocks; returns the committed latents [1, 3H, 16, h, w]."""
+        """Run all blocks; returns the committed latents [1, 3H, 16, h, w] (with a start image, its 3 latent frames
+        come first: [1, 3H + 3, 16, h, w])."""
         for _ in range(self.num_blocks):
             self.generate_block()
         return self.all_latents

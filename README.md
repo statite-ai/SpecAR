@@ -70,6 +70,8 @@ specar examples                                  # list the curated prompts
   `floor(j * blocks / k + 1/2)` for `j = 0..k-1`.
 - **Output:** `--out` (default `specar.mp4`); `--seed` (default 42); `--weights` (default `weights`);
   `--save-latents` also writes the latents next to the video.
+- **Image-to-video (Krea):** `--image photo.jpg` continues the video from that image (any size; it is resized to
+  832x480). The prompt, `--k` and the other options work as for text-to-video.
 - **Execution (Krea):** `--attention auto|fa3|fa4|fa2` overrides the attention kernel (default `auto`; the
   environment variable `SPECAR_ATTENTION` does the same); `--steps` sets the denoising steps per block (default 5,
   the tested setting). The command prints the kernel it is using. The same prompt and seed give a different video on

@@ -96,7 +96,7 @@ def write_mp4(frames, path, fps=16):
     return vid.shape[0]
 
 
-def run(models, prompt, k, blocks, seed, embeds=None, steps=5):
+def run(models, prompt, k, blocks, seed, embeds=None, steps=5, start_image=None):
     """Generate one video; returns (session, frames, generation seconds)."""
     from .model_krea import SpecARSession
     from .schedule import uniform_k
@@ -107,7 +107,7 @@ def run(models, prompt, k, blocks, seed, embeds=None, steps=5):
         frames.append(pixels.cpu().add_(1.0).mul_(0.5).clamp_(0.0, 1.0))
 
     sess = SpecARSession(models, prompt, seed, blocks, uniform_k(k, blocks), prompt_embeds=embeds,
-                         num_denoising_steps=steps, frame_callback=on_frames)
+                         num_denoising_steps=steps, frame_callback=on_frames, start_image=start_image)
     t = time.perf_counter()
     sess.generate()
     return sess, frames, time.perf_counter() - t
@@ -145,8 +145,8 @@ def list_examples():
 def generate(a):
     a = resolve(a)
     if a.backbone == "helios":
-        if a.attention or a.steps != 5:
-            sys.exit("--attention and --steps apply to the Krea backbone only")
+        if a.attention or a.steps != 5 or a.image:
+            sys.exit("--attention, --steps and --image apply to the Krea backbone only")
         return generate_helios(a)
     import torch
     from .model_krea import Models
@@ -154,9 +154,14 @@ def generate(a):
     torch.set_grad_enabled(False)
     anchors = uniform_k(a.k, a.blocks)
     print(f"target blocks (k={a.k}): {anchors}; longest drafter run {max_draft_run(anchors, a.blocks)}")
+    image = None
+    if a.image:
+        from PIL import Image
+        image = Image.open(a.image).convert("RGB")
+        print(f"start image: {a.image} ({image.size[0]}x{image.size[1]}, resized to 832x480)")
     models = Models(a.weights, attention=a.attention)
     print(f"attention backend: {models.attention} on {torch.cuda.get_device_name(0)}; {a.steps} denoising steps")
-    sess, frames, secs = run(models, a.prompt, a.k, a.blocks, a.seed, steps=a.steps)
+    sess, frames, secs = run(models, a.prompt, a.k, a.blocks, a.seed, steps=a.steps, start_image=image)
     n = write_mp4(frames, a.out)
     print(f"{a.out}: {n} frames ({n / FPS:.1f} s of video), generated in {secs:.1f} s; peak GPU memory {torch.cuda.max_memory_allocated() / 2**30:.1f} GiB")
     if a.save_latents:
@@ -182,6 +187,7 @@ def main(argv=None):
     g.add_argument("--weights", default="weights")
     g.add_argument("--out", default="specar.mp4")
     g.add_argument("--save-latents", action="store_true")
+    g.add_argument("--image", help="Krea: image-to-video; the video continues from this image (resized to 832x480)")
     g.add_argument("--attention", choices=["auto", "fa2", "fa3", "fa4"],
                    help="Krea: attention kernel; default auto (FlashAttention 3 on Hopper, 4 on Blackwell)")
     g.add_argument("--steps", type=int, default=5, help="Krea: denoising steps per block; default 5, the tested setting")

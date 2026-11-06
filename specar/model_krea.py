@@ -173,13 +173,14 @@ class SpecARSession:
     def __init__(self, models, prompt, seed, num_blocks, anchors, prompt_embeds=None, width=832, height=480,
                  kv_cache_num_frames=3, num_denoising_steps=5, timestep_shift=5.0, strength=1.0,
                  keep_first_frame=False, lazy_target_kv=True, skip_draft_on_anchors=True, frame_callback=None,
-                 start_image=None):
+                 start_image=None, input_video=None):
         from utils.scheduler import FlowMatchScheduler
         from v2v import get_denoising_schedule
         self.models = models
         self.prompt = prompt
-        self.anchors = set(anchors)
         self.num_blocks = num_blocks
+        if input_video is None:
+            strength = 1.0            # as Krea: strength below 1 only means something with an input video
         self.kv_cache_num_frames = kv_cache_num_frames
         self.keep_first_frame = keep_first_frame
         self.lazy_target_kv = lazy_target_kv
@@ -220,12 +221,29 @@ class SpecARSession:
         st = self.scheduler.timesteps
         zero_padded = torch.cat((st.cpu(), torch.tensor([0], dtype=torch.float32))).to(self.gpu)
         self.denoising_step_list = get_denoising_schedule(zero_padded, strength, steps=num_denoising_steps)
+        if input_video is not None:
+            self._noise_from_video(input_video)
+        # `anchors` is a list of target blocks, or a function of the final block count (a short input video caps it)
+        self.anchors = set(anchors(self.num_blocks) if callable(anchors) else anchors)
         # prompt conditioning (bf16, contiguous), computed here or passed in from a one-time encode
         cond = prompt_embeds if prompt_embeds is not None else models.text_encoder(text_prompts=[prompt])
         self.conditional_dict = {k: v.to(dtype=torch.bfloat16).contiguous() for k, v in cond.items()}
         self.current_prompt_embeds = self.conditional_dict["prompt_embeds"]
         self.last_pred = None
         self.start_latents = self._encode_start_image(start_image) if self.has_start_image else None
+
+    def _noise_from_video(self, path):
+        """Krea's video-to-video start: the input video's latents, noised to the first denoising step, replace the
+        pure noise each block starts from. The video's length caps the number of blocks."""
+        from v2v import encode_video_latent
+        s = self.denoising_step_list[0] / 1000
+        latents, _ = encode_video_latent(self.models.vae_encoder, encode_vae_cache=[None] * 55, video_path_or_url=path,
+                                         height=self.height, width=self.width, stream=False, max_frames=None,
+                                         resample_to=None)
+        latents = latents[None].to(self.gpu, dtype=self.noise.dtype).movedim(1, 2)
+        self.noise = (latents * (1.0 - s) + torch.randn(latents.shape, device=self.noise.device, dtype=self.noise.dtype,
+                                                       generator=self.rnd) * s).contiguous()
+        self.num_blocks = min(latents.shape[1] // self.nfpb - 1, self.num_blocks)
 
     def _encode_start_image(self, image):
         """Krea's setup_start_frame: the image (PIL, RGB, any size; resized to the video size) repeated over one
@@ -353,7 +371,7 @@ class SpecARSession:
 
     def generate(self):
         """Run all blocks; returns the committed latents [1, 3H, 16, h, w] (with a start image, its 3 latent frames
-        come first: [1, 3H + 3, 16, h, w])."""
+        come first: [1, 3H + 3, 16, h, w]; H is the block count actually generated)."""
         for _ in range(self.num_blocks):
             self.generate_block()
-        return self.all_latents
+        return self.all_latents[:, :self.current_start_frame]

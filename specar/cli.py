@@ -51,7 +51,10 @@ def resolve(a):
         sys.exit(f"--k {a.k} needs at least {a.k} blocks, but this video has {a.blocks}; lower --k or make the video longer")
     n = frames_for_blocks(a.backbone, a.blocks)
     tested = "" if a.blocks == H_DEFAULT else f" (the tested length is {H_DEFAULT} blocks)"
-    print(f"{a.backbone}: {a.blocks} blocks = {n} frames = {n / FPS:.1f} s at {FPS} fps{tested}; k={a.k}, seed={a.seed}")
+    if getattr(a, "video", None):
+        print(f"{a.backbone}: up to {a.blocks} blocks ({n / FPS:.1f} s); the input video's length sets the final length; k={a.k}, seed={a.seed}")
+    else:
+        print(f"{a.backbone}: {a.blocks} blocks = {n} frames = {n / FPS:.1f} s at {FPS} fps{tested}; k={a.k}, seed={a.seed}")
     return a
 
 
@@ -96,7 +99,7 @@ def write_mp4(frames, path, fps=16):
     return vid.shape[0]
 
 
-def run(models, prompt, k, blocks, seed, embeds=None, steps=5, start_image=None):
+def run(models, prompt, k, blocks, seed, embeds=None, steps=5, start_image=None, input_video=None, strength=0.8):
     """Generate one video; returns (session, frames, generation seconds)."""
     from .model_krea import SpecARSession
     from .schedule import uniform_k
@@ -106,8 +109,10 @@ def run(models, prompt, k, blocks, seed, embeds=None, steps=5, start_image=None)
         event.synchronize()
         frames.append(pixels.cpu().add_(1.0).mul_(0.5).clamp_(0.0, 1.0))
 
-    sess = SpecARSession(models, prompt, seed, blocks, uniform_k(k, blocks), prompt_embeds=embeds,
-                         num_denoising_steps=steps, frame_callback=on_frames, start_image=start_image)
+    # with an input video the block count is known only after it is read, so the schedule is built from it then
+    anchors = (lambda h: uniform_k(min(k, h), h)) if input_video else uniform_k(k, blocks)
+    sess = SpecARSession(models, prompt, seed, blocks, anchors, prompt_embeds=embeds, num_denoising_steps=steps,
+                         frame_callback=on_frames, start_image=start_image, input_video=input_video, strength=strength)
     t = time.perf_counter()
     sess.generate()
     return sess, frames, time.perf_counter() - t
@@ -145,15 +150,22 @@ def list_examples():
 def generate(a):
     a = resolve(a)
     if a.backbone == "helios":
-        if a.attention or a.steps != 5 or a.image:
-            sys.exit("--attention, --steps and --image apply to the Krea backbone only")
+        if a.attention or a.steps != 5 or a.image or a.video:
+            sys.exit("--attention, --steps, --image and --video apply to the Krea backbone only")
         return generate_helios(a)
     import torch
     from .model_krea import Models
     from .schedule import max_draft_run, uniform_k
     torch.set_grad_enabled(False)
-    anchors = uniform_k(a.k, a.blocks)
-    print(f"target blocks (k={a.k}): {anchors}; longest drafter run {max_draft_run(anchors, a.blocks)}")
+    if a.image and a.video:
+        sys.exit("give --image or --video, not both")
+    if a.image and not os.path.exists(a.image):
+        sys.exit(f"start image not found: {a.image}")
+    if a.video and not os.path.exists(a.video) and not a.video.startswith(("http://", "https://")):
+        sys.exit(f"input video not found: {a.video}")
+    if not a.video:        # with an input video the schedule depends on its length; it is printed after generation
+        anchors = uniform_k(a.k, a.blocks)
+        print(f"target blocks (k={a.k}): {anchors}; longest drafter run {max_draft_run(anchors, a.blocks)}")
     image = None
     if a.image:
         from PIL import Image
@@ -161,11 +173,15 @@ def generate(a):
         print(f"start image: {a.image} ({image.size[0]}x{image.size[1]}, resized to 832x480)")
     models = Models(a.weights, attention=a.attention)
     print(f"attention backend: {models.attention} on {torch.cuda.get_device_name(0)}; {a.steps} denoising steps")
-    sess, frames, secs = run(models, a.prompt, a.k, a.blocks, a.seed, steps=a.steps, start_image=image)
+    sess, frames, secs = run(models, a.prompt, a.k, a.blocks, a.seed, steps=a.steps, start_image=image,
+                             input_video=a.video, strength=a.strength)
+    if a.video:
+        print(f"video-to-video from {a.video} at strength {a.strength}: {sess.num_blocks} blocks, "
+              f"target blocks {sorted(sess.anchors)}")
     n = write_mp4(frames, a.out)
     print(f"{a.out}: {n} frames ({n / FPS:.1f} s of video), generated in {secs:.1f} s; peak GPU memory {torch.cuda.max_memory_allocated() / 2**30:.1f} GiB")
     if a.save_latents:
-        torch.save(sess.all_latents.cpu(), os.path.splitext(a.out)[0] + ".latents.pt")
+        torch.save(sess.all_latents[:, :sess.current_start_frame].cpu(), os.path.splitext(a.out)[0] + ".latents.pt")
 
 
 def main(argv=None):
@@ -188,6 +204,10 @@ def main(argv=None):
     g.add_argument("--out", default="specar.mp4")
     g.add_argument("--save-latents", action="store_true")
     g.add_argument("--image", help="Krea: image-to-video; the video continues from this image (resized to 832x480)")
+    g.add_argument("--video", help="Krea: video-to-video; the output follows this video (resized to 832x480; its length "
+                                    "caps the output length)")
+    g.add_argument("--strength", type=float, default=0.8,
+                   help="Krea video-to-video: how far to move from the input video, 0 to 1 (default 0.8, as Krea's demo)")
     g.add_argument("--attention", choices=["auto", "fa2", "fa3", "fa4"],
                    help="Krea: attention kernel; default auto (FlashAttention 3 on Hopper, 4 on Blackwell)")
     g.add_argument("--steps", type=int, default=5, help="Krea: denoising steps per block; default 5, the tested setting")

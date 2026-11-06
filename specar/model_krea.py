@@ -18,7 +18,9 @@ from pathlib import Path
 import torch
 
 _VENDOR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_vendor", "krea")
-if _VENDOR not in sys.path:
+# Inside Krea's own server its modules (wan, utils, v2v) are already imported: use those, not the vendored copy.
+_HOST = "wan" in sys.modules
+if not _HOST and _VENDOR not in sys.path:
     sys.path.insert(0, _VENDOR)
 os.environ.setdefault("DISABLE_SAGEATTENTION", "1")   # SageAttention changes numerics
 
@@ -29,7 +31,7 @@ def _install_attention(backend=None):
     import importlib
     from . import attention as A
     name = A.select(backend)
-    if sys.path[0] != _VENDOR:          # a kernel package may have put its own `utils` ahead of Krea's
+    if not _HOST and sys.path[0] != _VENDOR:          # a kernel package may have put its own `utils` ahead of Krea's
         if _VENDOR in sys.path:
             sys.path.remove(_VENDOR)
         sys.path.insert(0, _VENDOR)
@@ -229,8 +231,23 @@ class SpecARSession:
         cond = prompt_embeds if prompt_embeds is not None else models.text_encoder(text_prompts=[prompt])
         self.conditional_dict = {k: v.to(dtype=torch.bfloat16).contiguous() for k, v in cond.items()}
         self.current_prompt_embeds = self.conditional_dict["prompt_embeds"]
+        self.prev_prompt_embeds = self.current_prompt_embeds      # what the previous block was conditioned on
+        self._ca_prompt = {"T": None, "D": None}                  # the embeddings each cross-attention cache holds
         self.last_pred = None
         self.start_latents = self._encode_start_image(start_image) if self.has_start_image else None
+
+    def set_prompt_embeds(self, embeds):
+        """Condition the following blocks on new prompt embeddings; call between blocks. As in Krea, a block's
+        context forward still uses the previous block's prompt and its denoising steps use the new one."""
+        self.current_prompt_embeds = embeds
+
+    def _condition(self, key, cache, embeds):
+        """A model's cross-attention cache holds the keys and values of one prompt. Rebuild it when this forward
+        needs another prompt, so neither model ever attends to a stale one (the target may have skipped blocks)."""
+        if self._ca_prompt[key] is not embeds:
+            for c in cache:
+                c["is_init"] = False
+            self._ca_prompt[key] = embeds
 
     def _noise_from_video(self, path):
         """Krea's video-to-video start: the input video's latents, noised to the first denoising step, replace the
@@ -276,6 +293,7 @@ class SpecARSession:
         """Target context forward over the committed clean latents (kv cache rebuilt from zero)."""
         m = self.models.target
         _zero_kv(self.target_kv)
+        self._condition("T", self.target_ca, self.prev_prompt_embeds)
         m.model.block_mask = self._ctx_block_mask
         m(noisy_image_or_video=self._ctx_clean, conditional_dict=self._ctx_cond, timestep=self._ctx_timestep,
           kv_cache=self.target_kv, crossattn_cache=self.target_ca,
@@ -302,10 +320,12 @@ class SpecARSession:
             num_frame_per_block=self.nfpb, local_attn_size=-1)
         ctx_t = torch.ones([clean.shape[0], clean.shape[1]], device=clean.device, dtype=torch.int64) * 0
         cond = {k: v.to(DEV, non_blocking=True) for k, v in self.conditional_dict.items()}
+        cond["prompt_embeds"] = self.prev_prompt_embeds.to(DEV, non_blocking=True)
         self._ctx_clean, self._ctx_timestep, self._ctx_start, self._ctx_block_mask, self._ctx_cond = clean, ctx_t, start, mask, cond
         if not self.lazy_target_kv:
             self._build_target_context()
         d = self.models.drafter
+        self._condition("D", self.drafter_ca, self.prev_prompt_embeds)
         d.model.block_mask = mask
         d(noisy_image_or_video=clean, conditional_dict=cond, timestep=ctx_t, kv_cache=self.drafter_kv,
           crossattn_cache=self.drafter_ca, current_start=start * FRAME_SEQ_LENGTH)
@@ -317,6 +337,7 @@ class SpecARSession:
     def _denoise(self, model, kv, ca, start, noisy_input, step_noises, cond, key):
         steps = self.denoising_step_list
         pred = None
+        self._condition(key, ca, self.current_prompt_embeds)
         for index, t in enumerate(steps):
             timestep = torch.ones([1, self.nfpb], device=noisy_input.device, dtype=torch.int64) * t
             cond["prompt_embeds"] = self.current_prompt_embeds.to(DEV, non_blocking=True)
@@ -365,6 +386,7 @@ class SpecARSession:
         self.frame_callback(pixels, event)
         torch.cuda.synchronize()
         self.block_times[idx] = time.perf_counter() - t0
+        self.prev_prompt_embeds = self.current_prompt_embeds
         self.current_start_frame += self.nfpb
         self.block_idx += 1
         return pixels

@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 # Apache-2.0, except specar/model_krea.py and specar/_vendor/krea/ (CC-BY-NC-SA-4.0); see README "License"
 license = "Apache-2.0 AND CC-BY-NC-SA-4.0"
-license-files = ["LICENSE", "specar/_vendor/helios/LICENSE.txt", "specar/_vendor/krea/LICENSE.md", "specar/_vendor/krea/NOTICE.md"]
+license-files = ["LICENSE", "specar/_vendor/helios/LICENSE.txt", "specar/_vendor/krea/LICENSE.md", "specar/_vendor/krea/NOTICE.md", "specar/_vendor/longlive/LICENSE"]
 authors = [{ name = "Hudeifa Hassan", email = "hudeifa@statite.ai" }]
 dependencies = [
     "torch",
@@ -49,6 +49,32 @@ krea = [
     "nvidia-cutlass-dsl==4.8.1",
     "quack-kernels==0.6.5",
 ]
+longlive = [
+    "torch==2.8.0",
+    "torchvision==0.23.0",
+    "flash-attn @ https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.8cxx11abiTRUE-cp311-cp311-linux_x86_64.whl",
+    "kernels==0.10.5",              # FlashAttention 3 for Hopper, fetched prebuilt on first use
+    "diffusers==0.31.0",
+    "transformers==4.57.6",
+    "tokenizers==0.22.2",
+    "accelerate==1.15.0",
+    "safetensors==0.8.0",
+    "huggingface-hub==0.36.2",
+    "omegaconf==2.4.0",
+    "einops==0.8.2",
+    "easydict==1.13",
+    "ftfy==6.3.1",
+    "regex==2026.9.29",
+    "sentencepiece==0.2.3",
+    "numpy==2.2.6",
+    "scipy==1.15.3",
+    "opencv-python==5.0.0.93",
+    "pillow==12.3.0",
+    "av==13.1.0",
+    "tqdm==4.70.1",
+    "imageio==2.38.0",
+    "imageio-ffmpeg==0.8.1",
+]
 helios = [
     "torch==2.10.0",
     "torchvision==0.25.0",
@@ -79,4 +105,4 @@ specar-benchmark = "specar.benchmark:main"
 include = ["specar*"]
 
 [tool.setuptools.package-data]
-specar = ["examples.json", "_vendor/**/*.py", "_vendor/**/*.md", "_vendor/**/*.txt"]
+specar = ["examples.json", "_vendor/**/*.py", "_vendor/**/*.md", "_vendor/**/*.txt", "_vendor/**/*.yaml", "_vendor/**/LICENSE", "_vendor/**/UPSTREAM_COMMIT"]

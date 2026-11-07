@@ -57,7 +57,7 @@ def latent_sha256(latents):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="specar-benchmark")
-    ap.add_argument("--backbone", choices=["krea", "helios"], default="krea")
+    ap.add_argument("--backbone", choices=["krea", "helios", "longlive"], default="krea")
     ap.add_argument("--weights", default="weights")
     ap.add_argument("--k", type=int, nargs="+", default=None, help="default: 2 7 9 (Krea), 7 (Helios)")
     ap.add_argument("--json", default=None, help="write per-video results here")
@@ -68,6 +68,8 @@ def main(argv=None):
     a = ap.parse_args(argv)
     if a.backbone == "helios":
         return helios(a)
+    if a.backbone == "longlive":
+        return longlive(a)
     a.k = a.k or [2, 7, 9]
 
     import torch
@@ -105,6 +107,58 @@ def main(argv=None):
             json.dump({"environment": env, "settings": settings, "results": rows}, f, indent=1)
     if not is_reference:
         print("bitwise check: not applicable (the reference latents are for Hopper + FlashAttention 3 + 5 steps)")
+        return 0
+    print("bitwise check:", "FAILED" if failed else "all match")
+    return 1 if failed else 0
+
+
+# LongLive-2.0 5B: five Krea benchmark prompts (`cat` from the curated set) at seed 42; 12 blocks (15.9 s) and 24 blocks
+# (31.9 s); target-only, SpecAR k = 2, 5, 7 (shared KV cache), drafter-only. Reference latents: H100 + FlashAttention 3.
+LONGLIVE_PROMPTS = dict(PROMPTS)
+LONGLIVE_PROMPTS[6] = ("A white and orange tabby cat is seen happily darting through a dense garden, as if chasing something. "
+                       "Its eyes are wide and happy as it jogs forward, scanning the branches, flowers, and leaves as it walks. The "
+                       "path is narrow as it makes its way between all the plants. The scene is captured from a ground-level angle, "
+                       "following the cat closely, giving a low and intimate perspective. The image is cinematic with warm tones and "
+                       "a grainy texture. The scattered daylight between the leaves and plants above creates a warm contrast, "
+                       "accentuating the cat's orange fur. The shot is clear and sharp, with a shallow depth of field.")
+LONGLIVE_BLOCKS = (12, 24)
+LONGLIVE_REFERENCE = {}   # (blocks, k, prompt index) -> sha256 of the latents; k = -1 target-only, 0 drafter-only
+
+
+def longlive(a):
+    import torch
+    from .cli import run_longlive
+    from .model_longlive import Models, frames_for_blocks
+    from . import attention
+    ks = a.k or [-1, 2, 5, 7, 0]
+    models = Models(a.weights, attention=a.attention)
+    env = attention.describe()
+    is_reference = env["attention"] == "fa3" and env["compute_capability"].startswith("9.")
+    print(f"{env['gpu']} (compute capability {env['compute_capability']}), attention {env['attention']}, torch {env['versions']['torch']}", flush=True)
+    run_longlive(models, LONGLIVE_PROMPTS[1], 2, 2, SEED, decode=False)      # warm-up
+    rows, failed = [], 0
+    for blocks in LONGLIVE_BLOCKS:
+        for k in ks:
+            kk = blocks if k == -1 else k                                    # -1: every block on the target
+            for i, prompt in LONGLIVE_PROMPTS.items():
+                latents, _, secs, block_s = run_longlive(models, prompt, kk, blocks, SEED, decode=False)
+                h = latent_sha256(latents)
+                ref = LONGLIVE_REFERENCE.get((blocks, k, i)) if is_reference else None
+                status = "n/a" if ref is None else ("MATCH" if h == ref else "MISMATCH")
+                failed += status == "MISMATCH"
+                frames, diffusion = frames_for_blocks(blocks), sum(block_s)
+                label = {-1: "target-only", 0: "drafter-only"}.get(k, f"k={k}")
+                rows.append({"blocks": blocks, "k": k, "prompt": i, "diffusion_seconds": round(diffusion, 2), "fps": round(frames / diffusion, 2),
+                             "sha256": h, "bitwise": status})
+                print(f"{blocks} blocks {label:12s} prompt {i}: {diffusion:6.1f} s = {frames / diffusion:5.1f} fps  latents {status if is_reference else h[:12]}", flush=True)
+                del latents
+                torch.cuda.empty_cache()
+    if a.json:
+        with open(a.json, "w") as f:
+            json.dump({"environment": env, "settings": {"backbone": "longlive", "blocks": LONGLIVE_BLOCKS, "seed": SEED, "k": ks, "kv_mode": "shared"},
+                       "results": rows}, f, indent=1)
+    if not is_reference or not LONGLIVE_REFERENCE:
+        print("bitwise check: not applicable" + ("" if is_reference else " (the reference latents are for Hopper + FlashAttention 3)"))
         return 0
     print("bitwise check:", "FAILED" if failed else "all match")
     return 1 if failed else 0

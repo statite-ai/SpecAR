@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""specar download | generate  (--backbone krea | helios)."""
+"""specar download | generate  (--backbone krea | helios | longlive)."""
 import argparse
 import json
 import os
@@ -8,6 +8,17 @@ import time
 
 H_DEFAULT = 36  # Krea: 426 frames (26.6 s at 16 fps); Helios: 1185 frames (74 s). The tested length.
 FPS = 16
+BACKBONES = ("krea", "helios", "longlive")
+# LongLive-2.0: blocks of 8 latent frames = 32 video frames at 24 fps; 24 blocks = 765 frames = 31.9 s, the tested length
+LONGLIVE_H_DEFAULT, LONGLIVE_FPS, LONGLIVE_K_DEFAULT = 24, 24, 2
+
+
+def h_default(backbone):
+    return LONGLIVE_H_DEFAULT if backbone == "longlive" else H_DEFAULT
+
+
+def fps(backbone):
+    return LONGLIVE_FPS if backbone == "longlive" else FPS
 EXAMPLES = os.path.join(os.path.dirname(__file__), "examples.json")
 
 
@@ -16,12 +27,14 @@ def frames_for_blocks(backbone, blocks):
     trimmed to 4n + 1 as in HeliosPipeline."""
     if backbone == "helios":
         return (33 * blocks - 1) // 4 * 4 + 1
+    if backbone == "longlive":
+        return 32 * blocks - 3
     return 12 * blocks - 6
 
 
 def blocks_for_seconds(backbone, seconds):
     """The block count whose video length is closest to the requested seconds (at least 1 block)."""
-    return min(range(1, 1000), key=lambda h: abs(frames_for_blocks(backbone, h) / FPS - seconds))
+    return min(range(1, 1000), key=lambda h: abs(frames_for_blocks(backbone, h) / fps(backbone) - seconds))
 
 
 def load_example(name):
@@ -42,19 +55,19 @@ def resolve(a):
     if not a.prompt:
         sys.exit("give --prompt or --example (specar examples lists them)")
     a.seed = ex.get("seed", 42) if a.seed is None else a.seed
-    a.k = ex.get("k", 7) if a.k is None else a.k
+    a.k = ex.get("k", LONGLIVE_K_DEFAULT if a.backbone == "longlive" else 7) if a.k is None else a.k
     if a.seconds is not None:
         a.blocks = blocks_for_seconds(a.backbone, a.seconds)
     elif a.blocks is None:
-        a.blocks = ex.get("blocks", H_DEFAULT)
+        a.blocks = ex.get("blocks", h_default(a.backbone))
     if not 1 <= a.k <= a.blocks:
         sys.exit(f"--k {a.k} needs at least {a.k} blocks, but this video has {a.blocks}; lower --k or make the video longer")
-    n = frames_for_blocks(a.backbone, a.blocks)
-    tested = "" if a.blocks == H_DEFAULT else f" (the tested length is {H_DEFAULT} blocks)"
+    n, f = frames_for_blocks(a.backbone, a.blocks), fps(a.backbone)
+    tested = "" if a.blocks in (h_default(a.backbone), 12) or a.backbone != "longlive" and a.blocks == H_DEFAULT else f" (the tested length is {h_default(a.backbone)} blocks)"
     if getattr(a, "video", None):
-        print(f"{a.backbone}: up to {a.blocks} blocks ({n / FPS:.1f} s); the input video's length sets the final length; k={a.k}, seed={a.seed}")
+        print(f"{a.backbone}: up to {a.blocks} blocks ({n / f:.1f} s); the input video's length sets the final length; k={a.k}, seed={a.seed}")
     else:
-        print(f"{a.backbone}: {a.blocks} blocks = {n} frames = {n / FPS:.1f} s at {FPS} fps{tested}; k={a.k}, seed={a.seed}")
+        print(f"{a.backbone}: {a.blocks} blocks = {n} frames = {n / f:.1f} s at {f} fps{tested}; k={a.k}, seed={a.seed}")
     return a
 
 
@@ -81,6 +94,20 @@ def download(weights, backbone="krea"):
     if backbone == "helios":
         for name, skip in (("Helios-Base", "transformer_init/*"), ("Helios-Distilled", "transformer_ode/*")):
             _hub(snapshot_download, f"BestWishYsh/{name}", local_dir=os.path.join(weights, name), ignore_patterns=[skip])
+        print(f"weights ready in {weights}")
+        return
+    if backbone == "longlive":
+        # target: the 4-step generator; drafter: the same generator with the 2-step DMD LoRA merged, published in BF16
+        # inside NVIDIA's NVFP4 2-step repository as model_te.pt; base: Wan2.2-TI2V-5B (VAE, T5, tokenizer, config)
+        _hub(hf_hub_download, "Efficient-Large-Model/LongLive-2.0-5B", "model_bf16.pt", local_dir=os.path.join(weights, "LongLive-2.0-5B"))
+        _hub(hf_hub_download, "Efficient-Large-Model/LongLive-2.0-5B-NVFP4-S2", "model_te.pt", local_dir=os.path.join(weights, "LongLive-2.0-5B-S2"))
+        wan = os.path.join(weights, "wan_models", "Wan2.2-TI2V-5B")
+        for f in ("Wan2.2_VAE.pth", "models_t5_umt5-xxl-enc-bf16.pth", "config.json", "configuration.json",
+                  "diffusion_pytorch_model.safetensors.index.json", "diffusion_pytorch_model-00001-of-00003.safetensors",
+                  "diffusion_pytorch_model-00002-of-00003.safetensors", "diffusion_pytorch_model-00003-of-00003.safetensors",
+                  "google/umt5-xxl/special_tokens_map.json", "google/umt5-xxl/spiece.model", "google/umt5-xxl/tokenizer.json",
+                  "google/umt5-xxl/tokenizer_config.json"):
+            _hub(hf_hub_download, "Wan-AI/Wan2.2-TI2V-5B", f, local_dir=wan)
         print(f"weights ready in {weights}")
         return
     _hub(hf_hub_download, "krea/krea-realtime-video", "krea-realtime-video-14b.safetensors", local_dir=weights)
@@ -141,6 +168,37 @@ def generate_helios(a):
         torch.save(latents.cpu(), os.path.splitext(a.out)[0] + ".latents.pt")
 
 
+def run_longlive(models, prompt, k, blocks, seed, kv_mode="shared", decode=True):
+    """Generate one LongLive video; returns (latents, uint8 frames, generation seconds, per-block seconds)."""
+    from .model_longlive import LongLiveSpecAR
+    from .schedule import uniform_k
+    engine = models.engine if hasattr(models, "engine") else LongLiveSpecAR(models, kv_mode=kv_mode)
+    models.engine = engine
+    engine.kv_mode = kv_mode
+    t = time.perf_counter()
+    latents, frames, block_s = engine.generate(prompt, uniform_k(k, blocks) if k > 0 else set(), blocks, seed, decode=decode)
+    return latents, frames, time.perf_counter() - t, block_s
+
+
+def generate_longlive(a):
+    import imageio.v2 as imageio
+    import torch
+    from .model_longlive import Models
+    from .schedule import max_draft_run, uniform_k
+    anchors = uniform_k(a.k, a.blocks)
+    print(f"target blocks (k={a.k}): {anchors}; longest drafter run {max_draft_run(anchors, a.blocks)}; KV cache: {a.kv_mode}")
+    models = Models(a.weights, attention=a.attention)
+    print(f"attention backend: {models.attention} on {torch.cuda.get_device_name(0)}")
+    latents, frames, secs, block_s = run_longlive(models, a.prompt, a.k, a.blocks, a.seed, kv_mode=a.kv_mode)
+    imageio.mimwrite(a.out, list(frames), fps=LONGLIVE_FPS, quality=7)
+    diffusion = sum(block_s)
+    print(f"{a.out}: {len(frames)} frames ({len(frames) / LONGLIVE_FPS:.1f} s of video), generated in {secs:.1f} s "
+          f"({diffusion:.1f} s diffusion = {len(frames) / diffusion:.1f} fps, {secs - diffusion:.1f} s VAE decode); "
+          f"peak GPU memory {torch.cuda.max_memory_allocated() / 2**30:.1f} GiB")
+    if a.save_latents:
+        torch.save(latents.cpu(), os.path.splitext(a.out)[0] + ".latents.pt")
+
+
 def list_examples():
     with open(EXAMPLES) as f:
         for name, e in json.load(f).items():
@@ -153,6 +211,10 @@ def generate(a):
         if a.attention or a.steps != 5 or a.image or a.video:
             sys.exit("--attention, --steps, --image and --video apply to the Krea backbone only")
         return generate_helios(a)
+    if a.backbone == "longlive":
+        if a.steps != 5 or a.image or a.video:
+            sys.exit("--steps, --image and --video apply to the Krea backbone only")
+        return generate_longlive(a)
     import torch
     from .model_krea import Models
     from .schedule import max_draft_run, uniform_k
@@ -188,17 +250,18 @@ def main(argv=None):
     ap = argparse.ArgumentParser(prog="specar")
     sub = ap.add_subparsers(dest="cmd", required=True)
     d = sub.add_parser("download", help="fetch the backbone's weights from Hugging Face")
-    d.add_argument("--backbone", choices=["krea", "helios"], default="krea")
+    d.add_argument("--backbone", choices=BACKBONES, default="krea")
     d.add_argument("--weights", default="weights")
     g = sub.add_parser("generate", help="text to video with SpecAR")
     g.add_argument("--prompt", help="text prompt (or use --example)")
     g.add_argument("--example", help="a prompt from the curated set, with its backbone, seed and k (see: specar examples)")
-    g.add_argument("--backbone", choices=["krea", "helios"], help="default krea")
-    g.add_argument("--k", type=int, help="number of target blocks (target budget); default 7")
+    g.add_argument("--backbone", choices=BACKBONES, help="default krea")
+    g.add_argument("--k", type=int, help="number of target blocks (target budget); default 7 (longlive: 2)")
     length = g.add_mutually_exclusive_group()
     length.add_argument("--seconds", type=float, help="video length in seconds, rounded to whole blocks")
     length.add_argument("--blocks", type=int,
-                        help=f"exact video length in blocks (Krea: 3 latent frames each; Helios: 33-frame chunks); default {H_DEFAULT}")
+                        help=f"exact video length in blocks (Krea: 3 latent frames each; Helios: 33-frame chunks; LongLive: 8 latent "
+                             f"frames = 32 video frames); default {H_DEFAULT} (longlive: {LONGLIVE_H_DEFAULT})")
     g.add_argument("--seed", type=int, help="default 42")
     g.add_argument("--weights", default="weights")
     g.add_argument("--out", default="specar.mp4")
@@ -209,7 +272,10 @@ def main(argv=None):
     g.add_argument("--strength", type=float, default=0.8,
                    help="Krea video-to-video: how far to move from the input video, 0 to 1 (default 0.8, as Krea's demo)")
     g.add_argument("--attention", choices=["auto", "fa2", "fa3", "fa4"],
-                   help="Krea: attention kernel; default auto (FlashAttention 3 on Hopper, 4 on Blackwell)")
+                   help="Krea, LongLive: attention kernel; default auto (FlashAttention 3 on Hopper, 4 on Blackwell)")
+    g.add_argument("--kv-mode", choices=["shared", "replay", "window"], default="shared",
+                   help="LongLive: how the target sees drafted blocks; shared (one KV cache, default and fastest), replay "
+                        "(separate caches, the target re-encodes every drafted block), window (re-encodes the last 3)")
     g.add_argument("--steps", type=int, default=5, help="Krea: denoising steps per block; default 5, the tested setting")
     sub.add_parser("examples", help="list the curated prompts")
     a = ap.parse_args(argv)

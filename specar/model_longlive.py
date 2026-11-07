@@ -55,9 +55,17 @@ def _install_attention(backend=None):
                 sys.modules["flash_attn_interface"] = get_kernel("kernels-community/flash-attn3")
         os.environ["LLV2_USE_FA3"] = "1"
         os.environ.pop("LLV2_USE_FA4", None)
+        m = sys.modules.get("wan_5b.modules.attention")
+        if m is not None:            # already imported (inside LongLive's own scripts): patch its module globals
+            m.flash_attn_interface = sys.modules["flash_attn_interface"]
+            m.FLASH_ATTN_3_AVAILABLE = True
+            m._USE_FA3 = True
     elif name == "fa4":
         os.environ["LLV2_USE_FA4"] = "1"
         os.environ.pop("LLV2_USE_FA3", None)
+        m = sys.modules.get("wan_5b.modules.attention")
+        if m is not None:
+            m._USE_FA4, m._USE_FA3 = True, False
     else:
         os.environ.pop("LLV2_USE_FA3", None)
         os.environ.pop("LLV2_USE_FA4", None)
@@ -206,7 +214,7 @@ class LongLiveSpecAR:
     def _scheduler(self, noise):
         torch.cuda.synchronize()
         now = time.perf_counter()
-        if self.block >= 0:
+        if self.block >= 0 and self.block not in self.block_s:
             self.block_s[self.block] = now - self.t_start[self.block]
         self.block += 1
         b = self.block
@@ -222,6 +230,12 @@ class LongLiveSpecAR:
             return self._orig_sched(noise)
         finally:
             self.pipe.sampling_steps = saved
+
+    def _close_block(self, b):
+        """A block's last forward is its clean pass; time the block there, so a host's VAE decode after the loop is
+        not counted into the last block."""
+        torch.cuda.synchronize()
+        self.block_s[b] = time.perf_counter() - self.t_start[b]
 
     def _finish(self):
         torch.cuda.synchronize()
@@ -250,11 +264,13 @@ class LongLiveSpecAR:
                     # separate caches: the drafter's must hold every block, so it clean-passes the target's too
                     self.drafter(noisy_image_or_video=noisy_image_or_video, kv_cache=d_kv, crossattn_cache=self.drafter_ca, **call)
                     self.counts[b]["D_clean"] += 1
+                self._close_block(b)
             return out
         out = self.drafter(noisy_image_or_video=noisy_image_or_video, kv_cache=d_kv, crossattn_cache=self.drafter_ca, **call)
         self.counts[b]["D_clean" if clean else "D"] += 1
         if clean:
             self.latents[b] = noisy_image_or_video
+            self._close_block(b)
         return out
 
     def _rebuild_target(self, b, target_kv, target_ca, conditional_dict, cache_start):

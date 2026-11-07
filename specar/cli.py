@@ -189,11 +189,12 @@ def generate_longlive(a):
     print(f"target blocks (k={a.k}): {anchors}; longest drafter run {max_draft_run(anchors, a.blocks)}; KV cache: {a.kv_mode}")
     models = Models(a.weights, attention=a.attention)
     print(f"attention backend: {models.attention} on {torch.cuda.get_device_name(0)}")
+    run_longlive(models, a.prompt, 1, 2, a.seed, kv_mode=a.kv_mode, decode=False)      # 2-block warm-up (kernels, allocator)
     latents, frames, secs, block_s = run_longlive(models, a.prompt, a.k, a.blocks, a.seed, kv_mode=a.kv_mode)
     imageio.mimwrite(a.out, list(frames), fps=LONGLIVE_FPS, quality=7)
     diffusion = sum(block_s)
     print(f"{a.out}: {len(frames)} frames ({len(frames) / LONGLIVE_FPS:.1f} s of video), generated in {secs:.1f} s "
-          f"({diffusion:.1f} s diffusion = {len(frames) / diffusion:.1f} fps, {secs - diffusion:.1f} s VAE decode); "
+          f"({diffusion:.1f} s diffusion = {len(frames) / diffusion:.1f} fps, {secs - diffusion:.1f} s VAE decode and frame conversion); "
           f"peak GPU memory {torch.cuda.max_memory_allocated() / 2**30:.1f} GiB")
     if a.save_latents:
         torch.save(latents.cpu(), os.path.splitext(a.out)[0] + ".latents.pt")

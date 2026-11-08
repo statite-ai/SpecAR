@@ -1,0 +1,282 @@
+[
+ {
+  "video": "replay_k2__p001.mp4",
+  "arm": "replay_k2",
+  "prompt": "p001",
+  "vr_full": 0.1741311062070066,
+  "vr_2h": 0.16520583311583517
+ },
+ {
+  "video": "replay_k2__p002.mp4",
+  "arm": "replay_k2",
+  "prompt": "p002",
+  "vr_full": 0.02802537733412245,
+  "vr_2h": 0.0011538119489156384
+ },
+ {
+  "video": "replay_k2__p003.mp4",
+  "arm": "replay_k2",
+  "prompt": "p003",
+  "vr_full": 0.12091726570586027,
+  "vr_2h": 0.12091726570586027
+ },
+ {
+  "video": "replay_k2__p004.mp4",
+  "arm": "replay_k2",
+  "prompt": "p004",
+  "vr_full": 0.15245487962725018,
+  "vr_2h": 0.08614264498635178
+ },
+ {
+  "video": "replay_k2__p005.mp4",
+  "arm": "replay_k2",
+  "prompt": "p005",
+  "vr_full": 0.08000800560792863,
+  "vr_2h": 0.08000800560792863
+ },
+ {
+  "video": "replay_k2__p006.mp4",
+  "arm": "replay_k2",
+  "prompt": "p006",
+  "vr_full": -0.009012459040004531,
+  "vr_2h": -0.03808640545013612
+ },
+ {
+  "video": "replay_k2__p007.mp4",
+  "arm": "replay_k2",
+  "prompt": "p007",
+  "vr_full": 0.19120987024169758,
+  "vr_2h": 0.19120987024169758
+ },
+ {
+  "video": "replay_k2__p008.mp4",
+  "arm": "replay_k2",
+  "prompt": "p008",
+  "vr_full": 0.018631627503178618,
+  "vr_2h": 0.024806060364591945
+ },
+ {
+  "video": "replay_k2__p009.mp4",
+  "arm": "replay_k2",
+  "prompt": "p009",
+  "vr_full": 0.018092806824041838,
+  "vr_2h": -0.002949141843622182
+ },
+ {
+  "video": "replay_k2__p010.mp4",
+  "arm": "replay_k2",
+  "prompt": "p010",
+  "vr_full": -0.08715708814128625,
+  "vr_2h": -0.10892801441182451
+ },
+ {
+  "video": "replay_k2__p011.mp4",
+  "arm": "replay_k2",
+  "prompt": "p011",
+  "vr_full": 0.10798313516965556,
+  "vr_2h": 0.026459633105603647
+ },
+ {
+  "video": "replay_k2__p012.mp4",
+  "arm": "replay_k2",
+  "prompt": "p012",
+  "vr_full": 0.19477800104117532,
+  "vr_2h": 0.19120987024169758
+ },
+ {
+  "video": "replay_k2__p013.mp4",
+  "arm": "replay_k2",
+  "prompt": "p013",
+  "vr_full": -0.05527180880878621,
+  "vr_2h": -0.05527180880878621
+ },
+ {
+  "video": "replay_k2__p014.mp4",
+  "arm": "replay_k2",
+  "prompt": "p014",
+  "vr_full": 0.03283654942354698,
+  "vr_2h": 0.018311944825299083
+ },
+ {
+  "video": "replay_k2__p015.mp4",
+  "arm": "replay_k2",
+  "prompt": "p015",
+  "vr_full": 0.01985493744645889,
+  "vr_2h": 0.01985493744645889
+ },
+ {
+  "video": "replay_k2__p016.mp4",
+  "arm": "replay_k2",
+  "prompt": "p016",
+  "vr_full": 0.00773817946621854,
+  "vr_2h": -0.029210704492521052
+ },
+ {
+  "video": "replay_k2__p017.mp4",
+  "arm": "replay_k2",
+  "prompt": "p017",
+  "vr_full": 0.04535362059722916,
+  "vr_2h": 0.11474176419961847
+ },
+ {
+  "video": "replay_k2__p018.mp4",
+  "arm": "replay_k2",
+  "prompt": "p018",
+  "vr_full": 0.013234821256314071,
+  "vr_2h": -0.009732538546879811
+ },
+ {
+  "video": "replay_k2__p019.mp4",
+  "arm": "replay_k2",
+  "prompt": "p019",
+  "vr_full": 0.1210306480343072,
+  "vr_2h": 0.15560855795544146
+ },
+ {
+  "video": "replay_k2__p020.mp4",
+  "arm": "replay_k2",
+  "prompt": "p020",
+  "vr_full": 0.05374722921499198,
+  "vr_2h": 0.02802537733412245
+ },
+ {
+  "video": "replay_k5__p001.mp4",
+  "arm": "replay_k5",
+  "prompt": "p001",
+  "vr_full": 0.15560855795544146,
+  "vr_2h": 0.11240941521837304
+ },
+ {
+  "video": "replay_k5__p002.mp4",
+  "arm": "replay_k5",
+  "prompt": "p002",
+  "vr_full": 0.06006793118471872,
+  "vr_2h": 0.010618655064991926
+ },
+ {
+  "video": "replay_k5__p003.mp4",
+  "arm": "replay_k5",
+  "prompt": "p003",
+  "vr_full": 0.12091726570586027,
+  "vr_2h": 0.12091726570586027
+ },
+ {
+  "video": "replay_k5__p004.mp4",
+  "arm": "replay_k5",
+  "prompt": "p004",
+  "vr_full": 0.15245487962725018,
+  "vr_2h": 0.09296450443391745
+ },
+ {
+  "video": "replay_k5__p005.mp4",
+  "arm": "replay_k5",
+  "prompt": "p005",
+  "vr_full": 0.1067010416672149,
+  "vr_2h": 0.1067010416672149
+ },
+ {
+  "video": "replay_k5__p006.mp4",
+  "arm": "replay_k5",
+  "prompt": "p006",
+  "vr_full": 0.05323942296342928,
+  "vr_2h": 0.043264703621296835
+ },
+ {
+  "video": "replay_k5__p007.mp4",
+  "arm": "replay_k5",
+  "prompt": "p007",
+  "vr_full": 0.19120987024169758,
+  "vr_2h": 0.19120987024169758
+ },
+ {
+  "video": "replay_k5__p008.mp4",
+  "arm": "replay_k5",
+  "prompt": "p008",
+  "vr_full": 0.021376462791258356,
+  "vr_2h": 0.03878318506038888
+ },
+ {
+  "video": "replay_k5__p009.mp4",
+  "arm": "replay_k5",
+  "prompt": "p009",
+  "vr_full": 0.020503601333125166,
+  "vr_2h": -0.020355864112752694
+ },
+ {
+  "video": "replay_k5__p010.mp4",
+  "arm": "replay_k5",
+  "prompt": "p010",
+  "vr_full": -0.029719856268871376,
+  "vr_2h": -0.03213065077795471
+ },
+ {
+  "video": "replay_k5__p011.mp4",
+  "arm": "replay_k5",
+  "prompt": "p011",
+  "vr_full": 0.06832594529146258,
+  "vr_2h": 0.05606319988931661
+ },
+ {
+  "video": "replay_k5__p012.mp4",
+  "arm": "replay_k5",
+  "prompt": "p012",
+  "vr_full": 0.19477800104117532,
+  "vr_2h": 0.19120987024169758
+ },
+ {
+  "video": "replay_k5__p013.mp4",
+  "arm": "replay_k5",
+  "prompt": "p013",
+  "vr_full": -0.05527180880878621,
+  "vr_2h": -0.05527180880878621
+ },
+ {
+  "video": "replay_k5__p014.mp4",
+  "arm": "replay_k5",
+  "prompt": "p014",
+  "vr_full": 0.04677863199424835,
+  "vr_2h": 0.05448137714493057
+ },
+ {
+  "video": "replay_k5__p015.mp4",
+  "arm": "replay_k5",
+  "prompt": "p015",
+  "vr_full": 0.023423068245936637,
+  "vr_2h": -0.037422601419553614
+ },
+ {
+  "video": "replay_k5__p016.mp4",
+  "arm": "replay_k5",
+  "prompt": "p016",
+  "vr_full": 0.008321734106537795,
+  "vr_2h": 0.015143593554103465
+ },
+ {
+  "video": "replay_k5__p017.mp4",
+  "arm": "replay_k5",
+  "prompt": "p017",
+  "vr_full": 0.04535362059722916,
+  "vr_2h": 0.04535362059722916
+ },
+ {
+  "video": "replay_k5__p018.mp4",
+  "arm": "replay_k5",
+  "prompt": "p018",
+  "vr_full": 0.02620762537396276,
+  "vr_2h": 0.0032402655707688775
+ },
+ {
+  "video": "replay_k5__p019.mp4",
+  "arm": "replay_k5",
+  "prompt": "p019",
+  "vr_full": 0.15063421481802014,
+  "vr_2h": 0.1210306480343072
+ },
+ {
+  "video": "replay_k5__p020.mp4",
+  "arm": "replay_k5",
+  "prompt": "p020",
+  "vr_full": 0.043772509872859536,
+  "vr_2h": 0.015912202223288686
+ }
+]

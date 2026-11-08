@@ -198,8 +198,7 @@ matches the table above (target 0.111, SpecAR 0.106-0.111, drafter 0.075), but o
 MovieGenVideoBench prompts it gives target 0.100, SpecAR k = 5 0.071, k = 2 0.066, k = 7 0.064 and the 2-step model
 alone 0.050, with most of the loss in the second half of the videos. Separate KV caches with an exact rebuild of the
 target's cache (`--kv-mode replay`) score the same as the shared cache (k = 2 0.061, k = 5 0.070), so this is the
-2-step model's drift over long rollouts, not the cache sharing. Per-video scores for every judge are in the
-repository's `results/` of the release notes.
+2-step model's drift over long rollouts, not the cache sharing. Per-run speeds and per-video scores for every judge are in `results/longlive2/`.
 
 ## Citation
 

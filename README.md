@@ -183,16 +183,23 @@ The 2-step model costs 3 forwards per block (2 steps and LongLive's clean pass t
 cache) against 5 for the 4-step model, so 1.66x is the ceiling for any schedule on this pair; SpecAR at k = 2 reaches
 96% of it on 32 s videos.
 
-Quality on the 16 s videos, Restricted VBench Quality-6 (the paper's metric) and whole-video VisionReward, same five
-prompts and seed:
+Quality, Restricted VBench Quality-6 (the paper's metric, 0-100), same five prompts and seed, both lengths:
 
-| | Quality-6 | VisionReward |
+| | 16 s video | 32 s video |
 |---|---:|---:|
-| target only | 81.85 | 0.111 |
-| SpecAR k = 2 | 81.16 (99.2%) | 0.106 |
-| SpecAR k = 5 | 81.38 (99.4%) | 0.107 |
-| SpecAR k = 7 | 81.32 (99.4%) | 0.111 |
-| drafter only | 79.83 (97.5%) | 0.075 |
+| target only | 81.85 | 81.00 |
+| SpecAR k = 2 | 81.16 (99.2%) | 79.55 (98.2%) |
+| SpecAR k = 5 | 81.38 (99.4%) | 80.36 (99.2%) |
+| SpecAR k = 7 | 81.32 (99.4%) | 81.58 (100.7%) |
+| drafter only | 79.83 (97.5%) | 79.79 (98.5%) |
+
+Whole-video VisionReward, the paper's side judge, tells a less flattering story on long videos: on the 16 s set it
+matches the table above (target 0.111, SpecAR 0.106-0.111, drafter 0.075), but on 32 s videos over the first 20
+MovieGenVideoBench prompts it gives target 0.100, SpecAR k = 5 0.071, k = 2 0.066, k = 7 0.064 and the 2-step model
+alone 0.050, with most of the loss in the second half of the videos. Separate KV caches with an exact rebuild of the
+target's cache (`--kv-mode replay`) score the same as the shared cache (k = 2 0.061, k = 5 0.070), so this is the
+2-step model's drift over long rollouts, not the cache sharing. Per-video scores for every judge are in the
+repository's `results/` of the release notes.
 
 ## Citation
 

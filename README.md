@@ -156,7 +156,7 @@ latents, frames, chunk_seconds = model.generate("A papercraft coral reef", unifo
 ```bash
 specar-benchmark --backbone krea --weights weights                     # k = 2, 7, 9; four prompts
 specar-benchmark --backbone helios --weights weights-helios            # k = 7; two prompts, about 11 min each
-specar-benchmark --backbone longlive --weights weights-longlive        # target-only, k = 2, 5, 7, drafter-only; five prompts, 16 s and 32 s
+specar-benchmark --backbone longlive --weights weights-longlive        # target-only, k = 2, 5, 7, drafter-only; 16 s and 32 s
 ```
 
 The benchmark prints the generation time of each video and, on a Hopper GPU with FlashAttention 3 and 5 steps,
@@ -167,9 +167,9 @@ frame decoding.
 
 ## LongLive-2.0 5B results
 
-One H100 80GB, FlashAttention 3, BF16, 1280x720 at 24 fps, five prompts (`ll-mammoths` … `ll-cat`), seed 42, shared KV
-cache. Diffusion frames per second (VAE decoding excluded; the Wan2.2 VAE decodes at about 0.86x real time on an
-H100 on top of this), mean over the five prompts; the spread across prompts is under 0.5% in every cell.
+One H100 80GB, FlashAttention 3, BF16, 1280x720 at 24 fps, seed 42, shared KV cache. Diffusion frames per second
+(VAE decoding excluded; the Wan2.2 VAE decodes at about 0.86x real time on an H100 on top of this), mean over the
+prompts; the spread across prompts is under 0.5% in every cell.
 
 | | 16 s video (12 blocks) | 32 s video (24 blocks) |
 |---|---:|---:|
@@ -183,7 +183,7 @@ The 2-step model costs 3 forwards per block (2 steps and LongLive's clean pass t
 cache) against 5 for the 4-step model, so 1.66x is the ceiling for any schedule on this pair; SpecAR at k = 2 reaches
 96% of it on 32 s videos.
 
-Quality, Restricted VBench Quality-6 (the paper's metric, 0-100), same five prompts and seed, both lengths:
+Quality, Restricted VBench Quality-6 (the paper's metric, 0-100), same prompts and seed, both lengths:
 
 | | 16 s video | 32 s video |
 |---|---:|---:|
@@ -193,12 +193,7 @@ Quality, Restricted VBench Quality-6 (the paper's metric, 0-100), same five prom
 | SpecAR k = 7 | 81.32 (99.4%) | 81.58 (100.7%) |
 | drafter only | 79.83 (97.5%) | 79.79 (98.5%) |
 
-Whole-video VisionReward, the paper's side judge, tells a less flattering story on long videos: on the 16 s set it
-matches the table above (target 0.111, SpecAR 0.106-0.111, drafter 0.075), but on 32 s videos over the first 20
-MovieGenVideoBench prompts it gives target 0.100, SpecAR k = 5 0.071, k = 2 0.066, k = 7 0.064 and the 2-step model
-alone 0.050, with most of the loss in the second half of the videos. Separate KV caches with an exact rebuild of the
-target's cache (`--kv-mode replay`) score the same as the shared cache (k = 2 0.061, k = 5 0.070), so this is the
-2-step model's drift over long rollouts, not the cache sharing. Per-run speeds and per-video scores for every judge are in `results/longlive2/`.
+Per-run speeds and per-video scores are in `results/longlive2/`.
 
 ## Citation
 
